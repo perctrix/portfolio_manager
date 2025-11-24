@@ -2,8 +2,13 @@ const MY_PORTFOLIOS_KEY = 'myPortfolioIds';
 
 export function getMyPortfolioIds(): string[] {
     if (typeof window === 'undefined') return [];
-    const ids = localStorage.getItem(MY_PORTFOLIOS_KEY);
-    return ids ? JSON.parse(ids) : [];
+    try {
+        const ids = localStorage.getItem(MY_PORTFOLIOS_KEY);
+        return ids ? JSON.parse(ids) : [];
+    } catch (error) {
+        console.error('Failed to parse portfolio IDs from localStorage:', error);
+        return [];
+    }
 }
 
 export function addMyPortfolio(id: string): void {

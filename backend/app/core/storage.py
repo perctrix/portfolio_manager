@@ -1,6 +1,7 @@
 import json
 import csv
 import os
+import re
 from typing import Optional
 from app.models.portfolio import Portfolio
 from datetime import datetime
@@ -16,6 +17,16 @@ os.makedirs(PORTFOLIOS_DIR, exist_ok=True)
 os.makedirs(PRICES_DIR, exist_ok=True)
 
 PORTFOLIOS_FILE = os.path.join(META_DIR, "portfolios.json")
+
+def validate_portfolio_id(portfolio_id: str) -> bool:
+    """
+    Validate portfolio ID to prevent path injection attacks.
+    Format: p_ followed by 8 hexadecimal characters (from UUID).
+    Example: p_a1b2c3d4
+    """
+    if not portfolio_id:
+        return False
+    return bool(re.match(r'^p_[a-f0-9]{8}$', portfolio_id))
 
 def _load_portfolios_meta() -> list[dict]:
     if not os.path.exists(PORTFOLIOS_FILE):
@@ -64,13 +75,16 @@ def create_portfolio(portfolio: Portfolio) -> Portfolio:
 
 def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dict], append: bool = False):
     """Save data to the portfolio's CSV file"""
+    if not validate_portfolio_id(portfolio_id):
+        raise ValueError(f"Invalid portfolio ID: {portfolio_id}")
+
     csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
     mode = "a" if append else "w"
-    
+
     # If appending and file doesn't exist, switch to write to include header
     if append and not os.path.exists(csv_path):
         mode = "w"
-        
+
     with open(csv_path, mode, newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         if mode == "w":
@@ -79,20 +93,23 @@ def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dic
 
 def delete_portfolio(portfolio_id: str) -> bool:
     """Delete portfolio metadata and data file"""
+    if not validate_portfolio_id(portfolio_id):
+        return False
+
     portfolios = _load_portfolios_meta()
-    
+
     # Filter out the portfolio
     new_portfolios = [p for p in portfolios if p['id'] != portfolio_id]
-    
+
     if len(new_portfolios) == len(portfolios):
-        return False # Not found
-        
+        return False  # Not found
+
     _save_portfolios_meta(new_portfolios)
-    
+
     # Delete CSV
     csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
     if os.path.exists(csv_path):
         os.remove(csv_path)
-        
+
     return True
 

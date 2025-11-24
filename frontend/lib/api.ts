@@ -1,13 +1,22 @@
-import { Portfolio, CreatePortfolioRequest } from '@/types';
+import { Portfolio, CreatePortfolioRequest, ImportPortfolioData } from '@/types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
+
+async function safeJsonParse(response: Response): Promise<any> {
+    try {
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to parse JSON response:', error);
+        throw new Error('Invalid response format from server');
+    }
+}
 
 export async function getPortfolios(): Promise<Portfolio[]> {
     const response = await fetch(`${API_BASE_URL}/portfolios`);
     if (!response.ok) {
         throw new Error('Failed to fetch portfolios');
     }
-    return response.json();
+    return safeJsonParse(response);
 }
 
 export async function createPortfolio(data: CreatePortfolioRequest): Promise<Portfolio> {
@@ -18,13 +27,13 @@ export async function createPortfolio(data: CreatePortfolioRequest): Promise<Por
         },
     });
     if (!response.ok) {
-        const error = await response.json();
+        const error = await safeJsonParse(response);
         throw new Error(error.detail || 'Failed to create portfolio');
     }
-    return response.json();
+    return safeJsonParse(response);
 }
 
-export async function importPortfolio(data: any): Promise<Portfolio> {
+export async function importPortfolio(data: ImportPortfolioData): Promise<Portfolio> {
     const response = await fetch(`${API_BASE_URL}/portfolios/import`, {
         method: 'POST',
         headers: {
@@ -33,10 +42,10 @@ export async function importPortfolio(data: any): Promise<Portfolio> {
         body: JSON.stringify(data),
     });
     if (!response.ok) {
-        const error = await response.json();
+        const error = await safeJsonParse(response);
         throw new Error(error.detail || 'Failed to import portfolio');
     }
-    return response.json();
+    return safeJsonParse(response);
 }
 
 export async function deletePortfolio(id: string): Promise<void> {
@@ -44,7 +53,7 @@ export async function deletePortfolio(id: string): Promise<void> {
         method: 'DELETE',
     });
     if (!response.ok) {
-        const error = await response.json();
+        const error = await safeJsonParse(response);
         throw new Error(error.detail || 'Failed to delete portfolio');
     }
 }
