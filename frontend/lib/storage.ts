@@ -1,32 +1,56 @@
-const MY_PORTFOLIOS_KEY = 'myPortfolioIds';
+import { Portfolio } from '@/types';
 
-export function getMyPortfolioIds(): string[] {
-    if (typeof window === 'undefined') return [];
+const PORTFOLIOS_KEY = 'portfolios';
+
+export interface PortfolioData {
+    meta: Portfolio;
+    data: any[];
+}
+
+export function getAllPortfolios(): Record<string, PortfolioData> {
+    if (typeof window === 'undefined') return {};
     try {
-        const ids = localStorage.getItem(MY_PORTFOLIOS_KEY);
-        return ids ? JSON.parse(ids) : [];
+        const stored = localStorage.getItem(PORTFOLIOS_KEY);
+        return stored ? JSON.parse(stored) : {};
     } catch (error) {
-        console.error('Failed to parse portfolio IDs from localStorage:', error);
-        return [];
+        console.error('Failed to parse portfolios from localStorage:', error);
+        return {};
     }
 }
 
-export function addMyPortfolio(id: string): void {
+export function getPortfolio(id: string): PortfolioData | null {
+    const portfolios = getAllPortfolios();
+    return portfolios[id] || null;
+}
+
+export function savePortfolio(id: string, portfolioData: PortfolioData): void {
     if (typeof window === 'undefined') return;
-    const ids = getMyPortfolioIds();
-    if (!ids.includes(id)) {
-        ids.push(id);
-        localStorage.setItem(MY_PORTFOLIOS_KEY, JSON.stringify(ids));
+    const portfolios = getAllPortfolios();
+    portfolios[id] = portfolioData;
+    localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+}
+
+export function deletePortfolio(id: string): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    delete portfolios[id];
+    localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+}
+
+export function updatePortfolioData(id: string, data: any[]): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[id]) {
+        portfolios[id].data = data;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }
 
-export function removeMyPortfolio(id: string): void {
+export function addTransaction(id: string, transaction: any): void {
     if (typeof window === 'undefined') return;
-    const ids = getMyPortfolioIds();
-    const filtered = ids.filter(i => i !== id);
-    localStorage.setItem(MY_PORTFOLIOS_KEY, JSON.stringify(filtered));
-}
-
-export function isMyPortfolio(id: string): boolean {
-    return getMyPortfolioIds().includes(id);
+    const portfolios = getAllPortfolios();
+    if (portfolios[id]) {
+        portfolios[id].data.push(transaction);
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
 }
