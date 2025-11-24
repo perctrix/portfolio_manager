@@ -67,6 +67,20 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/calculate/indicators")
+def calculate_indicators(portfolio: Portfolio, data: List[dict]):
+    """
+    Calculate performance indicators for a portfolio (legacy endpoint).
+
+    This endpoint maintains backward compatibility with existing clients.
+    For new implementations, use /calculate/indicators/all or /calculate/indicators/basic.
+    """
+    try:
+        eng = engine.PortfolioEngine(portfolio, data)
+        return eng.get_indicators()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/calculate/indicators/all")
 def calculate_all_indicators(portfolio: Portfolio, data: List[dict]):
     """
