@@ -1,0 +1,4 @@
+datetime,symbol,side,quantity,price,fee,currency,account,note
+2023-01-03T10:00:00,AAPL,BUY,10,125.0,0,USD,main,
+2023-06-01T10:00:00,MSFT,BUY,5,330.0,0,USD,main,
+2023-09-01T10:00:00,AAPL,SELL,5,189.0,0,USD,main,

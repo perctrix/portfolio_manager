@@ -1,0 +1,100 @@
+'use client';
+
+import { useState } from 'react';
+
+interface AddTransactionModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSubmit: (data: any) => Promise<void>;
+}
+
+export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactionModalProps) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    if (!isOpen) return null;
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setIsSubmitting(true);
+        const formData = new FormData(e.currentTarget);
+
+        const data = {
+            datetime: formData.get('datetime'),
+            symbol: formData.get('symbol'),
+            side: formData.get('side'),
+            quantity: Number(formData.get('quantity')),
+            price: Number(formData.get('price')),
+            fee: Number(formData.get('fee')),
+        };
+
+        try {
+            await onSubmit(data);
+            onClose();
+        } catch (error) {
+            console.error(error);
+            alert('Failed to add transaction');
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">Add Transaction</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
+                        <input
+                            type="datetime-local"
+                            name="datetime"
+                            required
+                            defaultValue={new Date().toISOString().slice(0, 16)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
+                            <input type="text" name="symbol" required className="w-full px-3 py-2 border rounded-lg uppercase" placeholder="AAPL" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Side</label>
+                            <select name="side" className="w-full px-3 py-2 border rounded-lg">
+                                <option value="BUY">BUY</option>
+                                <option value="SELL">SELL</option>
+                                <option value="DEPOSIT">DEPOSIT</option>
+                                <option value="WITHDRAW">WITHDRAW</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                            <input type="number" step="any" name="quantity" required className="w-full px-3 py-2 border rounded-lg" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                            <input type="number" step="any" name="price" required className="w-full px-3 py-2 border rounded-lg" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fee</label>
+                        <input type="number" step="any" name="fee" defaultValue="0" className="w-full px-3 py-2 border rounded-lg" />
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'Adding...' : 'Add Transaction'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
