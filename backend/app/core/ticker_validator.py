@@ -2,7 +2,7 @@ import os
 import json
 import requests
 import time
-import fcntl
+import portalocker
 from typing import Optional
 from datetime import datetime
 from app.core import storage
@@ -106,10 +106,10 @@ def add_to_dynamic_list(symbol: str, info: dict) -> bool:
         with open(lock_file, 'a'):
             pass
             
-        with open(lock_file, 'r+') as lock_fd:
-            # Acquire exclusive lock (blocks until available)
-            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
-            
+        with open(lock_file, 'a') as lock_fd:
+            # Acquire exclusive lock (blocks until available, timeout after 10 seconds)
+            portalocker.lock(lock_fd, portalocker.LOCK_EX)
+
             try:
                 tickers_dict = load_dynamic_tickers()
 
@@ -131,15 +131,15 @@ def add_to_dynamic_list(symbol: str, info: dict) -> bool:
                 temp_file = DYNAMIC_TICKERS_FILE + '.tmp'
                 with open(temp_file, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
-                
-                # Atomic rename (on POSIX systems, this is atomic)
+
+                # Atomic rename (cross-platform atomic operation)
                 os.replace(temp_file, DYNAMIC_TICKERS_FILE)
 
                 print(f"Added ticker {symbol} to dynamic list")
                 return True
             finally:
                 # Release lock
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                portalocker.unlock(lock_fd)
 
     except Exception as e:
         print(f"Error adding ticker {symbol} to dynamic list: {e}")
