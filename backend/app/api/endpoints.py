@@ -45,8 +45,8 @@ def get_portfolio_nav(portfolio_id: str):
     try:
         eng = engine.PortfolioEngine(portfolio_id)
         nav = eng.calculate_nav_history()
-        # Convert to list of {date, value} for frontend
-        return [{"date": d, "value": v} for d, v in nav.items()]
+        # Convert to list of {date, value} for frontend - ensure consistent date format
+        return [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -141,3 +141,17 @@ def get_portfolio_data(portfolio_id: str):
         return list(reader)
 
 
+@router.get("/prices/{symbol}/history")
+def get_price_history(symbol: str):
+    """Get historical prices for a symbol"""
+    df = prices.get_price_history(symbol)
+    if df.empty:
+        # Try to fetch if not in cache
+        prices.update_price_cache(symbol)
+        df = prices.get_price_history(symbol)
+        
+    if df.empty:
+        raise HTTPException(status_code=404, detail=f"No data found for {symbol}")
+        
+    # Return list of {date, value}
+    return [{"date": d.strftime("%Y-%m-%d"), "value": v} for d, v in df['Close'].items()]
