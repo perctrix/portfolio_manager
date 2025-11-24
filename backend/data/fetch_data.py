@@ -4,6 +4,8 @@ This module aims to fetch financial (exchange rate) data from Yahoo Finance.
 import time
 import random
 import requests
+import pandas as pd
+from datetime import datetime
 
 def get_stealth_headers() -> dict:
     """
@@ -65,35 +67,66 @@ def get_stealth_headers() -> dict:
 
     return headers
 
-def get_latest_close(ticker: str = 'CADCNY=X', interval: str = '1m') -> float | None:
+def get_latest_close(ticker: str, start_date: str = None, interval: str = '1d') -> pd.DataFrame | float | None:
     """
-    Downloads the latest closing price for a given ticker.
+    Downloads price data for a given ticker.
 
     Parameters:
-    ticker (str): The ticker symbol to retrieve the latest price for. Defaults to 'CADCNY=X'.
-    interval (str): The time interval for the data. Defaults to '1m'.
+    ticker (str): The ticker symbol to retrieve data for.
+    start_date (str): Optional start date in format 'YYYY-MM-DD'. If None, fetches last 24h only and returns float.
+    interval (str): The time interval for the data. Defaults to '1d'.
 
     Returns:
-    float | None: The latest closing price for the given ticker, or None if an error occurs.
+    pd.DataFrame | float | None:
+        - If start_date provided: DataFrame with columns [Open, High, Low, Close, Volume] and datetime index
+        - If start_date is None: Latest close price as float
+        - None if error occurs
     """
     current_time: int = int(time.time())
-    yesterday_time: int = current_time - 86400
+
+    if start_date:
+        period1 = int(datetime.strptime(start_date, '%Y-%m-%d').timestamp())
+    else:
+        period1 = current_time - 86400
+
     url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={yesterday_time}&period2={current_time}&interval={interval}")
+           f"?period1={period1}&period2={current_time}&interval={interval}")
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            result = data['chart']['result'][0]
-            close_prices = result['indicators']['quote'][0]['close']
+        if response.status_code != 200:
+            print(f"Error: HTTP {response.status_code} for {ticker}")
+            return None if not start_date else pd.DataFrame()
 
+        data = response.json()
+        result = data['chart']['result'][0]
+
+        if start_date:
+            timestamps = result['timestamp']
+            quotes = result['indicators']['quote'][0]
+
+            df = pd.DataFrame({
+                'Open': quotes['open'],
+                'High': quotes['high'],
+                'Low': quotes['low'],
+                'Close': quotes['close'],
+                'Volume': quotes['volume']
+            })
+
+            df.index = pd.to_datetime(timestamps, unit='s')
+            df.index.name = 'Date'
+            df = df.dropna(subset=['Close'])
+
+            return df
+        else:
+            close_prices = result['indicators']['quote'][0]['close']
             for price in reversed(close_prices):
                 if price is not None:
                     return price
-        return None
+            return None
+
     except (requests.RequestException, KeyError, ValueError, TypeError) as e:
         print(f"Error: {e}")
-        return None
+        return None if not start_date else pd.DataFrame()
 
 if __name__ == "__main__":
     SYMBOL = 'CADCNY=X'

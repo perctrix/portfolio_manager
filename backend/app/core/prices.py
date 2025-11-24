@@ -1,36 +1,27 @@
-import yfinance as yf
 import pandas as pd
 import numpy as np
 import os
+import sys
 import talib as ta
 from app.core import storage
 from app.core.indicators import (
-    calculate_connors_rsi, 
-    apply_kalman_filter, 
-    apply_fft_filter_rolling, 
+    calculate_connors_rsi,
+    apply_kalman_filter,
+    apply_fft_filter_rolling,
     rolling_normalize
 )
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+from data.fetch_data import get_latest_close
 
 def fetch_price_data(symbol: str, start_date: str = '2020-01-01', interval: str = '1d') -> pd.DataFrame:
     """
     Download and prepare stock data.
     """
-    # Download stock data
-    # Note: yfinance might return MultiIndex if multiple tickers, but here we fetch one.
-    stock = yf.download(symbol, start=start_date, interval=interval, progress=False)
-    
-    if isinstance(stock.columns, pd.MultiIndex):
-        # Handle case where yf returns MultiIndex even for single ticker
-        try:
-            stock = stock.xs(symbol, level=1, axis=1)
-        except KeyError:
-            pass # Might not be MultiIndex in some versions or if structure differs
+    stock = get_latest_close(symbol, start_date=start_date, interval=interval)
 
-    if stock.empty:
-        # Try fetching without start date (max history) if empty
-        stock = yf.download(symbol, period="max", interval=interval, progress=False)
-        if stock.empty:
-            raise ValueError(f"No data found for {symbol}")
+    if stock is None or (isinstance(stock, pd.DataFrame) and stock.empty):
+        raise ValueError(f"No data found for {symbol}")
 
     # Ensure columns exist and are float
     price_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
