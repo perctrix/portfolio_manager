@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Legend } from 'recharts';
 
 interface NavChartProps {
@@ -18,6 +18,9 @@ interface ChartPoint {
 export function NavChart({ data, comparisonData = {} }: NavChartProps) {
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const rafRef = useRef<number | null>(null);
+    const pendingRightRef = useRef<string | null>(null);
 
     if (!data || data.length === 0) {
         return (
@@ -29,12 +32,35 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
 
     const isComparisonMode = Object.keys(comparisonData).length > 0;
 
+    const sampledData = useMemo(() => {
+        if (data.length <= 300) return data;
+        const step = Math.ceil(data.length / 300);
+        return data.filter((_, idx) => idx % step === 0 || idx === data.length - 1);
+    }, [data]);
+
+    const handleMouseMove = useCallback((e: any) => {
+        if (!isDragging || !e || !e.activeLabel) return;
+
+        pendingRightRef.current = e.activeLabel;
+
+        if (rafRef.current === null) {
+            rafRef.current = requestAnimationFrame(() => {
+                if (pendingRightRef.current) {
+                    setRefAreaRight(pendingRightRef.current);
+                }
+                rafRef.current = null;
+            });
+        }
+    }, [isDragging]);
+
     const chartData: ChartPoint[] = useMemo(() => {
+        const sourceData = sampledData;
+
         if (!isComparisonMode) {
-            return data;
+            return sourceData;
         }
 
-        const baseValue = data[0]?.value || 1;
+        const baseValue = sourceData[0]?.value || 1;
 
         const comparisonMaps = new Map<string, Map<string, number>>();
         Object.entries(comparisonData).forEach(([sym, history]) => {
@@ -47,7 +73,7 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
             comparisonMaps.set(sym, dateMap);
         });
 
-        return data.map(d => {
+        return sourceData.map(d => {
             const normalizedDate = d.date.substring(0, 10);
             const point: ChartPoint = {
                 ...d,
@@ -63,7 +89,7 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
 
             return point;
         });
-    }, [data, comparisonData, isComparisonMode]);
+    }, [sampledData, comparisonData, isComparisonMode]);
 
     const formatValue = (val: number): string => {
         if (isComparisonMode) return `${val.toFixed(2)}%`;
@@ -73,16 +99,20 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
     const selectionInfo = useMemo(() => {
         if (!refAreaLeft || !refAreaRight) return null;
 
-        const leftIndex = chartData.findIndex(d => d.date === refAreaLeft);
-        const rightIndex = chartData.findIndex(d => d.date === refAreaRight);
+        const leftIndex = data.findIndex(d => d.date.substring(0, 10) === refAreaLeft.substring(0, 10));
+        const rightIndex = data.findIndex(d => d.date.substring(0, 10) === refAreaRight.substring(0, 10));
 
         if (leftIndex < 0 || rightIndex < 0) return null;
 
-        const start = chartData[Math.min(leftIndex, rightIndex)];
-        const end = chartData[Math.max(leftIndex, rightIndex)];
+        const start = data[Math.min(leftIndex, rightIndex)];
+        const end = data[Math.max(leftIndex, rightIndex)];
 
-        const startVal = isComparisonMode ? (start.normalizedValue ?? 0) : start.value;
-        const endVal = isComparisonMode ? (end.normalizedValue ?? 0) : end.value;
+        const startVal = isComparisonMode
+            ? ((start.value - (data[0]?.value || 1)) / (data[0]?.value || 1)) * 100
+            : start.value;
+        const endVal = isComparisonMode
+            ? ((end.value - (data[0]?.value || 1)) / (data[0]?.value || 1)) * 100
+            : end.value;
 
         const change = endVal - startVal;
         const pctChange = isComparisonMode ? change : ((change / startVal) * 100);
@@ -93,7 +123,7 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
             change,
             pctChange: isComparisonMode ? change : pctChange
         };
-    }, [refAreaLeft, refAreaRight, chartData, isComparisonMode]);
+    }, [refAreaLeft, refAreaRight, data, isComparisonMode]);
 
     return (
         <div className="h-96 w-full relative select-none">
@@ -119,10 +149,22 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
                 <LineChart
                     data={chartData}
                     margin={{ top: 20, right: 20, bottom: 20, left: 0 }}
-                    onMouseDown={(e: any) => e && e.activeLabel && setRefAreaLeft(e.activeLabel)}
-                    onMouseMove={(e: any) => refAreaLeft && e && e.activeLabel && setRefAreaRight(e.activeLabel)}
+                    onMouseDown={(e: any) => {
+                        if (e && e.activeLabel) {
+                            setIsDragging(true);
+                            setRefAreaLeft(e.activeLabel);
+                            setRefAreaRight(null);
+                        }
+                    }}
+                    onMouseMove={handleMouseMove}
                     onMouseUp={() => {
-                        if (refAreaLeft === refAreaRight) {
+                        setIsDragging(false);
+                        setRefAreaLeft(null);
+                        setRefAreaRight(null);
+                    }}
+                    onMouseLeave={() => {
+                        if (isDragging) {
+                            setIsDragging(false);
                             setRefAreaLeft(null);
                             setRefAreaRight(null);
                         }
