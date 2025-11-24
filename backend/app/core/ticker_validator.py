@@ -94,15 +94,20 @@ def load_dynamic_tickers() -> dict:
 def add_to_dynamic_list(symbol: str, info: dict) -> bool:
     """
     Add validated ticker to dynamic.json for future use.
-    Uses file locking to prevent race conditions.
+    Uses file locking and atomic writes to prevent race conditions and data corruption.
     """
     try:
         os.makedirs(os.path.dirname(DYNAMIC_TICKERS_FILE), exist_ok=True)
         
-        # Open file with locking for atomic read-modify-write
+        # Use the data file itself for locking to ensure proper synchronization
         lock_file = DYNAMIC_TICKERS_FILE + '.lock'
-        with open(lock_file, 'w') as lock_fd:
-            # Acquire exclusive lock
+        
+        # Create lock file if it doesn't exist
+        with open(lock_file, 'a'):
+            pass
+            
+        with open(lock_file, 'r+') as lock_fd:
+            # Acquire exclusive lock (blocks until available)
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
             
             try:
@@ -122,8 +127,13 @@ def add_to_dynamic_list(symbol: str, info: dict) -> bool:
                     'tickers': list(tickers_dict.values())
                 }
 
-                with open(DYNAMIC_TICKERS_FILE, 'w', encoding='utf-8') as f:
+                # Write to temporary file first, then atomically rename
+                temp_file = DYNAMIC_TICKERS_FILE + '.tmp'
+                with open(temp_file, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
+                
+                # Atomic rename (on POSIX systems, this is atomic)
+                os.replace(temp_file, DYNAMIC_TICKERS_FILE)
 
                 print(f"Added ticker {symbol} to dynamic list")
                 return True

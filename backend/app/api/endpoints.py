@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import List
 import logging
 import re
+import threading
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Simple in-memory rate limiting (per IP)
 # In production, consider using Redis or a proper rate limiting library
 rate_limit_store = defaultdict(list)
+rate_limit_lock = threading.Lock()
 RATE_LIMIT_REQUESTS = 10  # Max requests
 RATE_LIMIT_WINDOW = 60  # Per 60 seconds
 
@@ -22,23 +24,25 @@ def check_rate_limit(client_ip: str) -> bool:
     """
     Check if client has exceeded rate limit.
     Returns True if within limits, False if exceeded.
+    Thread-safe implementation.
     """
-    now = datetime.now()
-    cutoff = now - timedelta(seconds=RATE_LIMIT_WINDOW)
-    
-    # Clean old entries
-    rate_limit_store[client_ip] = [
-        timestamp for timestamp in rate_limit_store[client_ip]
-        if timestamp > cutoff
-    ]
-    
-    # Check if exceeded
-    if len(rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
-        return False
-    
-    # Add current request
-    rate_limit_store[client_ip].append(now)
-    return True
+    with rate_limit_lock:
+        now = datetime.now()
+        cutoff = now - timedelta(seconds=RATE_LIMIT_WINDOW)
+        
+        # Clean old entries
+        rate_limit_store[client_ip] = [
+            timestamp for timestamp in rate_limit_store[client_ip]
+            if timestamp > cutoff
+        ]
+        
+        # Check if exceeded
+        if len(rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return False
+        
+        # Add current request
+        rate_limit_store[client_ip].append(now)
+        return True
 
 
 class TickerValidateRequest(BaseModel):
