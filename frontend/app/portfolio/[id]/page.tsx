@@ -7,6 +7,7 @@ import { MetricsCard } from '@/components/MetricsCard';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
+import { Eye, EyeOff } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -19,6 +20,10 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [loading, setLoading] = useState(true);
     const [isAddTxnOpen, setIsAddTxnOpen] = useState(false);
     const [isEditSnapshotOpen, setIsEditSnapshotOpen] = useState(false);
+
+    // Comparison State
+    const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
+    const [comparisonData, setComparisonData] = useState<{ [key: string]: any[] }>({});
 
     useEffect(() => {
         loadData();
@@ -70,6 +75,36 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         });
         if (!res.ok) throw new Error('Failed');
         loadData(); // Reload
+    }
+
+    async function toggleTicker(symbol: string) {
+        const newSelected = new Set(selectedTickers);
+        if (newSelected.has(symbol)) {
+            newSelected.delete(symbol);
+            const newCompData = { ...comparisonData };
+            delete newCompData[symbol];
+            setComparisonData(newCompData);
+            setSelectedTickers(newSelected);
+        } else {
+            newSelected.add(symbol);
+            setSelectedTickers(newSelected);
+
+            if (!comparisonData[symbol]) {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/prices/${symbol}/history`);
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                    const history = await res.json();
+                    setComparisonData(prev => ({ ...prev, [symbol]: history }));
+                } catch (e) {
+                    console.error(`Failed to fetch history for ${symbol}:`, e);
+                    newSelected.delete(symbol);
+                    setSelectedTickers(new Set(newSelected));
+                    alert(`Unable to load data for ${symbol}. Please try again.`);
+                }
+            }
+        }
     }
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
@@ -139,8 +174,15 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 {/* Charts Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-semibold mb-6">NAV History</h2>
-                    <NavChart data={navHistory} />
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-lg font-semibold">
+                            {selectedTickers.size > 0 ? 'Performance Comparison (%)' : 'NAV History'}
+                        </h2>
+                        {selectedTickers.size > 0 && (
+                            <span className="text-xs text-gray-500">Normalized to 0% at start</span>
+                        )}
+                    </div>
+                    <NavChart data={navHistory} comparisonData={comparisonData} />
                 </div>
 
                 {/* Holdings / Transactions Table */}
@@ -154,6 +196,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-500 font-medium">
                                 <tr>
+                                    <th className="px-6 py-3 w-10"></th>
                                     {portfolio.type === 'transaction' ? (
                                         <>
                                             <th className="px-6 py-3">Date</th>
@@ -176,20 +219,32 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             <tbody className="divide-y divide-gray-100">
                                 {holdings.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                                             No data available
                                         </td>
                                     </tr>
                                 ) : (
                                     holdings.map((row, i) => (
                                         <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3">
+                                                {/* Only show toggle for valid symbols (not CASH) */}
+                                                {row.symbol && row.symbol !== 'CASH' && (
+                                                    <button
+                                                        onClick={() => toggleTicker(row.symbol)}
+                                                        className={`p-1 rounded hover:bg-gray-200 ${selectedTickers.has(row.symbol) ? 'text-blue-600' : 'text-gray-400'}`}
+                                                        title="Toggle on Chart"
+                                                    >
+                                                        {selectedTickers.has(row.symbol) ? <Eye size={16} /> : <EyeOff size={16} />}
+                                                    </button>
+                                                )}
+                                            </td>
                                             {portfolio.type === 'transaction' ? (
                                                 <>
                                                     <td className="px-6 py-3">{new Date(row.datetime).toLocaleDateString()}</td>
                                                     <td className="px-6 py-3 font-medium">{row.symbol}</td>
                                                     <td className="px-6 py-3">
                                                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.side === 'BUY' ? 'bg-green-100 text-green-800' :
-                                                                row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                                            row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
                                                             }`}>
                                                             {row.side}
                                                         </span>
