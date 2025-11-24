@@ -60,7 +60,10 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
     try:
         eng = engine.PortfolioEngine(portfolio, data)
         nav = eng.calculate_nav_history()
-        return [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()]
+        return {
+            "nav": [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()],
+            "failed_tickers": eng.failed_tickers
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
