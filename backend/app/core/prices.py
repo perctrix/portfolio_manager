@@ -12,13 +12,13 @@ from app.core.indicators import (
 )
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-from data.fetch_data import get_latest_close
+from data.fetch_data import get_historical_close
 
 def fetch_price_data(symbol: str, start_date: str = '2020-01-01', interval: str = '1d') -> pd.DataFrame:
     """
     Download and prepare stock data.
     """
-    stock = get_latest_close(symbol, start_date=start_date, interval=interval)
+    stock = get_historical_close(symbol, start_date=start_date, interval=interval)
 
     if stock is None or (isinstance(stock, pd.DataFrame) and stock.empty):
         raise ValueError(f"No data found for {symbol}")

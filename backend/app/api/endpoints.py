@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
+from pydantic import BaseModel
 from app.models.portfolio import Portfolio
-from app.core import prices, engine
+from app.core import prices, engine, ticker_validator
 
 router = APIRouter()
+
+
+class TickerValidateRequest(BaseModel):
+    symbol: str
 
 @router.post("/calculate/nav")
 def calculate_nav(portfolio: Portfolio, data: List[dict]):
@@ -56,3 +61,22 @@ def update_price(symbol: str):
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to update price for {symbol}")
     return {"message": f"Price updated for {symbol}"}
+
+@router.post("/tickers/validate")
+def validate_ticker(request: TickerValidateRequest):
+    """
+    Validate if a ticker exists via Yahoo Finance.
+    If valid, adds it to dynamic.json for future use.
+    """
+    symbol = request.symbol.upper().strip()
+
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol cannot be empty")
+
+    valid, info = ticker_validator.validate_ticker_via_yahoo(symbol)
+
+    if valid:
+        ticker_validator.add_to_dynamic_list(symbol, info)
+        return {"valid": True, "info": info}
+    else:
+        return {"valid": False, "info": None, "message": f"Ticker '{symbol}' not found"}
