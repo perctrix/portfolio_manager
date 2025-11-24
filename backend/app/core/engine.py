@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict
 from app.models.portfolio import Portfolio, PortfolioType
-from app.core import prices, indicators
+from app.core import prices
+from app.core import indicators
 
 class PortfolioEngine:
     def __init__(self, portfolio: Portfolio, data: list[dict]):
@@ -210,5 +211,75 @@ class PortfolioEngine:
         if not price_history_df.empty and len(weights) > 1:
             risk_decomp = indicators.calculate_risk_contribution(weights, price_history_df)
             basic["risk_decomposition"] = risk_decomp
-            
+
         return basic
+
+    def _get_current_holdings(self) -> Dict[str, float]:
+        """Get current holdings as {symbol: quantity}"""
+        current_holdings = {}
+
+        if self.portfolio.type == PortfolioType.SNAPSHOT:
+            positions = self.positions
+            for _, row in positions.iterrows():
+                current_holdings[row['symbol']] = float(row['quantity'])
+        elif self.portfolio.type == PortfolioType.TRANSACTION:
+            txns = self.transactions
+            for _, txn in txns.iterrows():
+                sym = txn['symbol']
+                qty = float(txn['quantity'])
+                side = txn['side'].upper()
+                if side == 'BUY':
+                    current_holdings[sym] = current_holdings.get(sym, 0.0) + qty
+                elif side == 'SELL':
+                    current_holdings[sym] = current_holdings.get(sym, 0.0) - qty
+
+        return {k: v for k, v in current_holdings.items() if v != 0}
+
+    def _get_current_prices(self, holdings: Dict[str, float]) -> Dict[str, float]:
+        """Get current prices for holdings"""
+        current_prices = {}
+        for sym in holdings.keys():
+            df = prices.get_price_history(sym)
+            if not df.empty:
+                current_prices[sym] = float(df['Close'].iloc[-1])
+        return current_prices
+
+    def _calculate_weights(self, holdings: Dict[str, float], prices: Dict[str, float]) -> Dict[str, float]:
+        """Calculate portfolio weights"""
+        return indicators.calculate_weights(holdings, prices)
+
+    def _build_price_history_df(self, holdings: Dict[str, float]) -> pd.DataFrame:
+        """Build price history DataFrame for holdings"""
+        price_data = {}
+        for sym in holdings.keys():
+            df = prices.get_price_history(sym)
+            if not df.empty:
+                price_data[sym] = df['Close']
+
+        if not price_data:
+            return pd.DataFrame()
+
+        return pd.DataFrame(price_data)
+
+    def get_basic_indicators(self) -> Dict[str, float]:
+        """Get 5 basic indicators: total_return, cagr, volatility, sharpe, max_drawdown"""
+        nav = self.calculate_nav_history()
+        return indicators.calculate_basic_portfolio_indicators(nav)
+
+    def get_all_indicators(self) -> Dict[str, Any]:
+        """Get all portfolio indicators (approximately 79 indicators)"""
+        nav = self.calculate_nav_history()
+        transactions = self.transactions if self.portfolio.type == PortfolioType.TRANSACTION else None
+        current_holdings = self._get_current_holdings()
+        current_prices = self._get_current_prices(current_holdings)
+        weights = self._calculate_weights(current_holdings, current_prices)
+        price_history = self._build_price_history_df(current_holdings)
+
+        return indicators.calculate_all_portfolio_indicators(
+            nav=nav,
+            transactions=transactions,
+            holdings=current_holdings,
+            prices=current_prices,
+            price_history=price_history,
+            weights=weights
+        )
