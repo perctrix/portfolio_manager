@@ -110,6 +110,58 @@ from .aggregator import (
     calculate_basic_portfolio_indicators
 )
 
+def calculate_basic_metrics(nav_series):
+    """Backward compatibility alias for calculate_basic_portfolio_indicators"""
+    return calculate_basic_portfolio_indicators(nav_series)
+
+def calculate_risk_metrics(returns_series, risk_free_rate: float = 0.0):
+    """Backward compatibility: Calculate advanced risk metrics"""
+    from .ratios import calculate_sortino_ratio, calculate_calmar_ratio
+    from .tail_risk import calculate_var, calculate_cvar, calculate_skewness, calculate_kurtosis
+    from .returns import calculate_annualized_return
+    from .drawdown import calculate_max_drawdown
+
+    if returns_series.empty:
+        return {}
+
+    nav = (1 + returns_series).cumprod()
+
+    return {
+        "sortino": calculate_sortino_ratio(returns_series, risk_free_rate=risk_free_rate),
+        "calmar": calculate_calmar_ratio(nav, returns_series),
+        "var_95": calculate_var(returns_series, 0.95),
+        "cvar_95": calculate_cvar(returns_series, 0.95),
+        "skewness": calculate_skewness(returns_series),
+        "kurtosis": calculate_kurtosis(returns_series, excess=True)
+    }
+
+def calculate_allocation_metrics(weights):
+    """Backward compatibility: Calculate allocation metrics"""
+    from .allocation import calculate_hhi, calculate_top_n_concentration
+
+    if not weights:
+        return {}
+
+    return {
+        "hhi": calculate_hhi(weights),
+        "top_5_concentration": calculate_top_n_concentration(weights, 5)
+    }
+
+def calculate_risk_contribution(weights, price_history):
+    """Backward compatibility: Calculate risk contribution"""
+    from .allocation import calculate_portfolio_volatility, calculate_risk_contribution_by_asset
+
+    if not weights or price_history.empty:
+        return {}
+
+    portfolio_volatility = calculate_portfolio_volatility(weights, price_history)
+    risk_decomp = calculate_risk_contribution_by_asset(weights, price_history)
+
+    return {
+        "portfolio_volatility": portfolio_volatility,
+        "risk_decomposition": risk_decomp
+    }
+
 __all__ = [
     'rolling_normalize',
     'calculate_simple_returns',
@@ -194,5 +246,9 @@ __all__ = [
     'calculate_skewness',
     'calculate_kurtosis',
     'calculate_all_portfolio_indicators',
-    'calculate_basic_portfolio_indicators'
+    'calculate_basic_portfolio_indicators',
+    'calculate_basic_metrics',
+    'calculate_risk_metrics',
+    'calculate_allocation_metrics',
+    'calculate_risk_contribution'
 ]
