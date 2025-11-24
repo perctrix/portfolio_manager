@@ -3,37 +3,31 @@ import numpy as np
 from datetime import datetime
 from typing import Any
 from app.models.portfolio import Portfolio, PortfolioType
-from app.core import storage, prices, indicators
+from app.core import prices, indicators
 
 class PortfolioEngine:
-    def __init__(self, portfolio_id: str):
-        self.portfolio = storage.get_portfolio(portfolio_id)
-        if not self.portfolio:
-            raise ValueError("Portfolio not found")
-            
-    def _load_transactions(self) -> pd.DataFrame:
-        csv_path = f"data/portfolios/{self.portfolio.id}.csv"
-        try:
-            df = pd.read_csv(csv_path)
-            df['datetime'] = pd.to_datetime(df['datetime'])
-            return df.sort_values('datetime')
-        except FileNotFoundError:
-             return pd.DataFrame(columns=["datetime", "symbol", "side", "quantity", "price", "fee", "currency", "account", "note"])
+    def __init__(self, portfolio: Portfolio, data: list[dict]):
+        self.portfolio = portfolio
 
-    def _load_snapshot_positions(self) -> pd.DataFrame:
-        csv_path = f"data/portfolios/{self.portfolio.id}.csv"
-        try:
-            df = pd.read_csv(csv_path)
-            return df
-        except FileNotFoundError:
-            return pd.DataFrame(columns=["as_of", "symbol", "quantity", "cost_basis", "currency", "note"])
+        if self.portfolio.type == PortfolioType.TRANSACTION:
+            if data:
+                self.transactions = pd.DataFrame(data)
+                self.transactions['datetime'] = pd.to_datetime(self.transactions['datetime'])
+                self.transactions = self.transactions.sort_values('datetime')
+            else:
+                self.transactions = pd.DataFrame(columns=["datetime", "symbol", "side", "quantity", "price", "fee", "currency", "account", "note"])
+        else:
+            if data:
+                self.positions = pd.DataFrame(data)
+            else:
+                self.positions = pd.DataFrame(columns=["as_of", "symbol", "quantity", "cost_basis", "currency", "note"])
 
     def calculate_nav_history(self) -> pd.Series:
         """
         Calculate NAV history.
         """
         if self.portfolio.type == PortfolioType.SNAPSHOT:
-            positions = self._load_snapshot_positions()
+            positions = self.positions
             if positions.empty:
                 return pd.Series()
                 
@@ -68,7 +62,7 @@ class PortfolioEngine:
             return nav
             
         elif self.portfolio.type == PortfolioType.TRANSACTION:
-            txns = self._load_transactions()
+            txns = self.transactions
             if txns.empty:
                 return pd.Series()
 
@@ -164,12 +158,12 @@ class PortfolioEngine:
         
         current_holdings = {}
         if self.portfolio.type == PortfolioType.SNAPSHOT:
-            positions = self._load_snapshot_positions()
+            positions = self.positions
             for _, row in positions.iterrows():
                 current_holdings[row['symbol']] = row['quantity']
         elif self.portfolio.type == PortfolioType.TRANSACTION:
             # Quick replay to get current holdings
-            txns = self._load_transactions()
+            txns = self.transactions
             for _, txn in txns.iterrows():
                 sym = txn['symbol']
                 qty = float(txn['quantity'])

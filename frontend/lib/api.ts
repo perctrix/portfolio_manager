@@ -1,4 +1,4 @@
-import { Portfolio, CreatePortfolioRequest, ImportPortfolioData } from '@/types';
+import { Portfolio } from '@/types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -11,49 +11,50 @@ async function safeJsonParse(response: Response): Promise<any> {
     }
 }
 
-export async function getPortfolios(): Promise<Portfolio[]> {
-    const response = await fetch(`${API_BASE_URL}/portfolios`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch portfolios');
-    }
-    return safeJsonParse(response);
-}
-
-export async function createPortfolio(data: CreatePortfolioRequest): Promise<Portfolio> {
-    const response = await fetch(`${API_BASE_URL}/portfolios?name=${encodeURIComponent(data.name)}&type=${data.type}&base_currency=${data.base_currency}`, {
+export async function calculateNav(portfolio: Portfolio, data: any[]): Promise<Array<{date: string, value: number}>> {
+    const response = await fetch(`${API_BASE_URL}/calculate/nav`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ portfolio, data }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
-        throw new Error(error.detail || 'Failed to create portfolio');
+        throw new Error(error.detail || 'Failed to calculate NAV');
     }
     return safeJsonParse(response);
 }
 
-export async function importPortfolio(data: ImportPortfolioData): Promise<Portfolio> {
-    const response = await fetch(`${API_BASE_URL}/portfolios/import`, {
+export async function calculateIndicators(portfolio: Portfolio, data: any[]): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/calculate/indicators`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ portfolio, data }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
-        throw new Error(error.detail || 'Failed to import portfolio');
+        throw new Error(error.detail || 'Failed to calculate indicators');
     }
     return safeJsonParse(response);
 }
 
-export async function deletePortfolio(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/portfolios/${id}`, {
-        method: 'DELETE',
+export async function getPriceHistory(symbol: string): Promise<Array<{date: string, value: number}>> {
+    const response = await fetch(`${API_BASE_URL}/prices/${symbol}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch price history');
+    }
+    return safeJsonParse(response);
+}
+
+export async function updatePrice(symbol: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/prices/update?symbol=${encodeURIComponent(symbol)}`, {
+        method: 'POST',
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
-        throw new Error(error.detail || 'Failed to delete portfolio');
+        throw new Error(error.detail || 'Failed to update price');
     }
 }

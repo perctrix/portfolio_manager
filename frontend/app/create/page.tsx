@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createPortfolio } from '@/lib/api';
-import { PortfolioType } from '@/types';
-import { addMyPortfolio } from '@/lib/storage';
+import { PortfolioType, Portfolio } from '@/types';
+import { savePortfolio } from '@/lib/storage';
 
 export default function CreatePortfolio() {
     const router = useRouter();
@@ -20,12 +19,20 @@ export default function CreatePortfolio() {
         const formData = new FormData(e.currentTarget);
 
         try {
-            const newPortfolio = await createPortfolio({
+            const portfolioId = `p_${Math.random().toString(16).slice(2, 10)}`;
+            const newPortfolio: Portfolio = {
+                id: portfolioId,
                 name: formData.get('name') as string,
                 type: formData.get('type') as PortfolioType,
                 base_currency: formData.get('base_currency') as string,
+                created_at: new Date().toISOString(),
+            };
+
+            savePortfolio(portfolioId, {
+                meta: newPortfolio,
+                data: []
             });
-            addMyPortfolio(newPortfolio.id);
+
             router.push('/');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to create portfolio');

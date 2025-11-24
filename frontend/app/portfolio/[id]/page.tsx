@@ -9,10 +9,8 @@ import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
-import { deletePortfolio } from '@/lib/api';
-import { removeMyPortfolio } from '@/lib/storage';
-
-const API_BASE_URL = 'http://localhost:8000/api';
+import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
+import { calculateNav, calculateIndicators, getPriceHistory, updatePrice } from '@/lib/api';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -24,7 +22,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [isAddTxnOpen, setIsAddTxnOpen] = useState(false);
     const [isEditSnapshotOpen, setIsEditSnapshotOpen] = useState(false);
 
-    // Comparison State
     const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
     const [comparisonData, setComparisonData] = useState<{ [key: string]: any[] }>({});
 
@@ -35,23 +32,29 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     async function loadData() {
         try {
             setLoading(true);
-            // Fetch Portfolio Info
-            const pRes = await fetch(`${API_BASE_URL}/portfolios/${id}`);
-            if (!pRes.ok) throw new Error('Failed to load portfolio');
-            const pData = await pRes.json();
-            setPortfolio(pData);
+            const portfolioData = getPortfolio(id);
+            if (!portfolioData) {
+                throw new Error('Portfolio not found');
+            }
 
-            // Fetch NAV
-            const navRes = await fetch(`${API_BASE_URL}/portfolios/${id}/nav`);
-            if (navRes.ok) setNavHistory(await navRes.json());
+            setPortfolio(portfolioData.meta);
+            setHoldings(portfolioData.data);
 
-            // Fetch Indicators
-            const indRes = await fetch(`${API_BASE_URL}/portfolios/${id}/indicators`);
-            if (indRes.ok) setIndicators(await indRes.json());
+            if (portfolioData.data.length > 0) {
+                const symbols = Array.from(new Set(portfolioData.data.map((row: any) => row.symbol).filter((s: string) => s && s !== 'CASH')));
+                for (const symbol of symbols) {
+                    await updatePrice(symbol).catch(err => console.warn(`Failed to update price for ${symbol}:`, err));
+                }
 
-            // Fetch Holdings/Data
-            const dataRes = await fetch(`${API_BASE_URL}/portfolios/${id}/data`);
-            if (dataRes.ok) setHoldings(await dataRes.json());
+                const nav = await calculateNav(portfolioData.meta, portfolioData.data);
+                setNavHistory(nav);
+
+                const ind = await calculateIndicators(portfolioData.meta, portfolioData.data);
+                setIndicators(ind);
+            } else {
+                setNavHistory([]);
+                setIndicators({});
+            }
 
         } catch (error) {
             console.error(error);
@@ -61,35 +64,38 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     }
 
     async function handleAddTransaction(data: any) {
-        const res = await fetch(`${API_BASE_URL}/portfolios/${id}/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed');
-        loadData(); // Reload
+        try {
+            addTransaction(id, data);
+            loadData();
+        } catch (err) {
+            console.error(err);
+            throw new Error('Failed to add transaction');
+        }
     }
 
     async function handleUpdateSnapshot(data: any[]) {
-        const res = await fetch(`${API_BASE_URL}/portfolios/${id}/positions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error('Failed');
-        loadData(); // Reload
+        try {
+            updatePortfolioData(id, data);
+            loadData();
+        } catch (err) {
+            console.error(err);
+            throw new Error('Failed to update snapshot');
+        }
     }
 
     const router = useRouter();
 
-    async function handleExport() {
+    function handleExport() {
         try {
-            const res = await fetch(`${API_BASE_URL}/portfolios/${id}/export`);
-            if (!res.ok) throw new Error('Failed to export');
-            const data = await res.json();
+            const portfolioData = getPortfolio(id);
+            if (!portfolioData) throw new Error('Portfolio not found');
 
-            // Create download
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const exportData = {
+                meta: portfolioData.meta,
+                data: portfolioData.data
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -104,12 +110,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
-    async function handleDelete() {
+    function handleDelete() {
         if (!confirm('Are you sure you want to delete this portfolio? This action cannot be undone.')) return;
 
         try {
-            await deletePortfolio(id);
-            removeMyPortfolio(id);
+            deletePortfolio(id);
             router.push('/');
         } catch (e) {
             console.error(e);
@@ -131,11 +136,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             if (!comparisonData[symbol]) {
                 try {
-                    const res = await fetch(`${API_BASE_URL}/prices/${symbol}/history`);
-                    if (!res.ok) {
-                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                    }
-                    const history = await res.json();
+                    const history = await getPriceHistory(symbol);
                     setComparisonData(prev => ({ ...prev, [symbol]: history }));
                 } catch (e) {
                     console.error(`Failed to fetch history for ${symbol}:`, e);
@@ -153,7 +154,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     return (
         <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
             <div className="max-w-6xl mx-auto space-y-8">
-                {/* Header */}
                 <div className="flex justify-between items-start">
                     <div>
                         <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 mb-2 inline-block">← Back to Portfolios</Link>
@@ -197,7 +197,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     </div>
                 </div>
 
-                {/* Key Metrics Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <MetricsCard
                         title="Total Return"
@@ -219,7 +218,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     />
                 </div>
 
-                {/* Advanced Metrics Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <MetricsCard title="Sortino" value={indicators.sortino || 0} />
                     <MetricsCard title="Calmar" value={indicators.calmar || 0} />
@@ -227,7 +225,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <MetricsCard title="HHI (Concentration)" value={indicators.hhi || 0} />
                 </div>
 
-                {/* Charts Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-semibold">
@@ -240,7 +237,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <NavChart data={navHistory} comparisonData={comparisonData} />
                 </div>
 
-                {/* Holdings / Transactions Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6 border-b border-gray-100">
                         <h2 className="text-lg font-semibold">
@@ -282,7 +278,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     holdings.map((row, i) => (
                                         <tr key={i} className="hover:bg-gray-50">
                                             <td className="px-6 py-3">
-                                                {/* Only show toggle for valid symbols (not CASH) */}
                                                 {row.symbol && row.symbol !== 'CASH' && (
                                                     <button
                                                         onClick={() => toggleTicker(row.symbol)}
