@@ -155,3 +155,79 @@ def get_price_history(symbol: str):
         
     # Return list of {date, value}
     return [{"date": d.strftime("%Y-%m-%d"), "value": v} for d, v in df['Close'].items()]
+
+@router.get("/portfolios/{portfolio_id}/export")
+def export_portfolio(portfolio_id: str):
+    """Export portfolio as JSON (meta + data)"""
+    portfolio = storage.get_portfolio(portfolio_id)
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+        
+    # Get data
+    csv_path = f"data/portfolios/{portfolio_id}.csv"
+    data = []
+    if os.path.exists(csv_path):
+        import csv
+        with open(csv_path, "r") as f:
+            reader = csv.DictReader(f)
+            data = list(reader)
+            
+    export_data = {
+        "meta": portfolio.dict(),
+        "data": data
+    }
+    return export_data
+
+@router.post("/portfolios/import")
+def import_portfolio(data: dict):
+    """Import portfolio from JSON"""
+    try:
+        meta = data.get("meta")
+        rows = data.get("data")
+        
+        if not meta or not rows is not None:
+            raise HTTPException(status_code=400, detail="Invalid import format")
+            
+        # Create Portfolio object
+        # We might need to generate a NEW ID to avoid conflicts, or ask user?
+        # For simplicity, let's keep the ID but check if it exists. If so, error.
+        
+        # Actually, for "restore", keeping ID is good.
+        # But if user imports same file twice, it errors.
+        # Let's try to create.
+        
+        p = Portfolio(**meta)
+        try:
+            storage.create_portfolio(p)
+        except ValueError:
+             # If exists, maybe we should update? Or fail?
+             # Let's fail for now to be safe.
+             raise HTTPException(status_code=400, detail="Portfolio already exists. Delete it first to re-import.")
+             
+        # Save data
+        if rows:
+            # Determine fieldnames based on type
+            if p.type == PortfolioType.TRANSACTION:
+                fieldnames = ["datetime", "symbol", "side", "quantity", "price", "fee", "currency", "account", "note"]
+            else:
+                fieldnames = ["as_of", "symbol", "quantity", "cost_basis", "currency", "note"]
+                
+            storage.save_portfolio_data(p.id, fieldnames, rows, append=False)
+            
+            # Trigger price updates
+            for row in rows:
+                if "symbol" in row:
+                    prices.update_price_cache(row["symbol"])
+                    
+        return {"message": "Portfolio imported successfully", "id": p.id}
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/portfolios/{portfolio_id}")
+def delete_portfolio(portfolio_id: str):
+    """Delete portfolio"""
+    success = storage.delete_portfolio(portfolio_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    return {"message": "Portfolio deleted"}

@@ -9,13 +9,11 @@ DATA_DIR = "data"
 META_DIR = os.path.join(DATA_DIR, "meta")
 PORTFOLIOS_DIR = os.path.join(DATA_DIR, "portfolios")
 PRICES_DIR = os.path.join(DATA_DIR, "prices")
-CACHE_DIR = os.path.join(DATA_DIR, "cache")
 
 # Ensure directories exist
 os.makedirs(META_DIR, exist_ok=True)
 os.makedirs(PORTFOLIOS_DIR, exist_ok=True)
 os.makedirs(PRICES_DIR, exist_ok=True)
-os.makedirs(CACHE_DIR, exist_ok=True)
 
 PORTFOLIOS_FILE = os.path.join(META_DIR, "portfolios.json")
 
@@ -78,4 +76,23 @@ def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dic
         if mode == "w":
             writer.writeheader()
         writer.writerows(rows)
+
+def delete_portfolio(portfolio_id: str) -> bool:
+    """Delete portfolio metadata and data file"""
+    portfolios = _load_portfolios_meta()
+    
+    # Filter out the portfolio
+    new_portfolios = [p for p in portfolios if p['id'] != portfolio_id]
+    
+    if len(new_portfolios) == len(portfolios):
+        return False # Not found
+        
+    _save_portfolios_meta(new_portfolios)
+    
+    # Delete CSV
+    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+        
+    return True
 

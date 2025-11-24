@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Portfolio } from '@/types';
-import { getPortfolios } from '@/lib/api';
+import { getPortfolios, importPortfolio } from '@/lib/api';
+import { getMyPortfolioIds, addMyPortfolio } from '@/lib/storage';
 
 export default function Home() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -16,8 +17,10 @@ export default function Home() {
 
   async function loadPortfolios() {
     try {
-      const data = await getPortfolios();
-      setPortfolios(data);
+      const allPortfolios = await getPortfolios();
+      const myIds = getMyPortfolioIds();
+      const myPortfolios = allPortfolios.filter(p => myIds.includes(p.id));
+      setPortfolios(myPortfolios);
     } catch (err) {
       setError('Failed to load portfolios');
       console.error(err);
@@ -26,17 +29,46 @@ export default function Home() {
     }
   }
 
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const importedPortfolio = await importPortfolio(data);
+      addMyPortfolio(importedPortfolio.id);
+      loadPortfolios();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to import portfolio. Invalid file format or portfolio already exists.');
+    }
+    // Reset input
+    e.target.value = '';
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">My Portfolios</h1>
-          <Link
-            href="/create"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + New Portfolio
-          </Link>
+          <div className="flex gap-4">
+            <label className="bg-white text-blue-600 border border-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
+              Import Portfolio
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImport}
+              />
+            </label>
+            <Link
+              href="/create"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              + New Portfolio
+            </Link>
+          </div>
         </div>
 
         {loading ? (

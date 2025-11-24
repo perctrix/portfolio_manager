@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createPortfolio } from '@/lib/api';
 import { PortfolioType } from '@/types';
+import { addMyPortfolio } from '@/lib/storage';
 
 export default function CreatePortfolio() {
     const router = useRouter();
@@ -19,11 +20,12 @@ export default function CreatePortfolio() {
         const formData = new FormData(e.currentTarget);
 
         try {
-            await createPortfolio({
+            const newPortfolio = await createPortfolio({
                 name: formData.get('name') as string,
                 type: formData.get('type') as PortfolioType,
                 base_currency: formData.get('base_currency') as string,
             });
+            addMyPortfolio(newPortfolio.id);
             router.push('/');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to create portfolio');
