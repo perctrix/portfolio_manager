@@ -3,27 +3,21 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Portfolio } from '@/types';
-import { getPortfolios, importPortfolio } from '@/lib/api';
-import { getMyPortfolioIds, addMyPortfolio } from '@/lib/storage';
+import { getAllPortfolios, savePortfolio } from '@/lib/storage';
 
 export default function Home() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPortfolios();
   }, []);
 
-  async function loadPortfolios() {
+  function loadPortfolios() {
     try {
-      const allPortfolios = await getPortfolios();
-      const myIds = getMyPortfolioIds();
-      const myPortfolios = allPortfolios.filter(p => myIds.includes(p.id));
-      setPortfolios(myPortfolios);
-    } catch (err) {
-      setError('Failed to load portfolios');
-      console.error(err);
+      const allPortfoliosData = getAllPortfolios();
+      const portfoliosList = Object.values(allPortfoliosData).map(p => p.meta);
+      setPortfolios(portfoliosList);
     } finally {
       setLoading(false);
     }
@@ -35,15 +29,21 @@ export default function Home() {
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
-      const importedPortfolio = await importPortfolio(data);
-      addMyPortfolio(importedPortfolio.id);
+      const importData = JSON.parse(text);
+
+      if (!importData.meta || !importData.data) {
+        throw new Error('Invalid file format');
+      }
+
+      savePortfolio(importData.meta.id, {
+        meta: importData.meta,
+        data: importData.data
+      });
       loadPortfolios();
     } catch (err) {
       console.error(err);
-      alert('Failed to import portfolio. Invalid file format or portfolio already exists.');
+      alert('Failed to import portfolio. Invalid file format.');
     }
-    // Reset input
     e.target.value = '';
   }
 
@@ -73,8 +73,6 @@ export default function Home() {
 
         {loading ? (
           <div className="text-center py-12">Loading...</div>
-        ) : error ? (
-          <div className="text-red-500 text-center py-12">{error}</div>
         ) : portfolios.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
             <p className="text-gray-500 mb-4">No portfolios found.</p>
