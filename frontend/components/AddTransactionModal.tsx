@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface AddTransactionModalProps {
     isOpen: boolean;
@@ -10,6 +11,7 @@ interface AddTransactionModalProps {
 
 export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactionModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [symbol, setSymbol] = useState('');
 
     if (!isOpen) return null;
 
@@ -20,7 +22,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
 
         const data = {
             datetime: formData.get('datetime'),
-            symbol: formData.get('symbol'),
+            symbol: symbol,
             side: formData.get('side'),
             quantity: Number(formData.get('quantity')),
             price: Number(formData.get('price')),
@@ -29,6 +31,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
 
         try {
             await onSubmit(data);
+            setSymbol('');
             onClose();
         } catch (error) {
             console.error(error);
@@ -56,7 +59,12 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
-                            <input type="text" name="symbol" required className="w-full px-3 py-2 border rounded-lg uppercase" placeholder="AAPL" />
+                            <TickerAutocomplete
+                                value={symbol}
+                                onChange={setSymbol}
+                                placeholder="AAPL"
+                                required
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Side</label>
