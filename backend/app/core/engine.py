@@ -8,6 +8,7 @@ from app.core import prices, indicators
 class PortfolioEngine:
     def __init__(self, portfolio: Portfolio, data: list[dict]):
         self.portfolio = portfolio
+        self.failed_tickers: list[str] = []
 
         if self.portfolio.type == PortfolioType.TRANSACTION:
             if data:
@@ -40,6 +41,8 @@ class PortfolioEngine:
                 df = prices.get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
+                else:
+                    self.failed_tickers.append(sym)
             
             if not price_data:
                 return pd.Series()
@@ -78,6 +81,8 @@ class PortfolioEngine:
                 df = prices.get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
+                else:
+                    self.failed_tickers.append(sym)
             
             if not price_data:
                 return pd.Series()

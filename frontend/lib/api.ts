@@ -11,7 +11,7 @@ async function safeJsonParse(response: Response): Promise<any> {
     }
 }
 
-export async function calculateNav(portfolio: Portfolio, data: any[]): Promise<Array<{date: string, value: number}>> {
+export async function calculateNav(portfolio: Portfolio, data: any[]): Promise<{nav: Array<{date: string, value: number}>, failed_tickers: string[]}> {
     const response = await fetch(`${API_BASE_URL}/calculate/nav`, {
         method: 'POST',
         headers: {

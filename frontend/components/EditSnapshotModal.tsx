@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface EditSnapshotModalProps {
     isOpen: boolean;
@@ -65,11 +66,9 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
                             <div key={index} className="flex gap-3 items-end">
                                 <div className="flex-1">
                                     <label className="block text-xs text-gray-500 mb-1">Symbol</label>
-                                    <input
-                                        type="text"
+                                    <TickerAutocomplete
                                         value={pos.symbol}
-                                        onChange={(e) => updateRow(index, 'symbol', e.target.value.toUpperCase())}
-                                        className="w-full px-3 py-2 border rounded-lg uppercase"
+                                        onChange={(value) => updateRow(index, 'symbol', value)}
                                         placeholder="AAPL"
                                     />
                                 </div>

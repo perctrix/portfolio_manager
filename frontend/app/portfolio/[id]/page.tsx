@@ -46,8 +46,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     await updatePrice(symbol).catch(err => console.warn(`Failed to update price for ${symbol}:`, err));
                 }
 
-                const nav = await calculateNav(portfolioData.meta, portfolioData.data);
-                setNavHistory(nav);
+                const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
+                setNavHistory(navResult.nav);
+
+                if (navResult.failed_tickers && navResult.failed_tickers.length > 0) {
+                    alert(`Warning: The following tickers could not be found:\n${navResult.failed_tickers.join(', ')}\n\nPlease check the symbols and update your portfolio.`);
+                }
 
                 const ind = await calculateIndicators(portfolioData.meta, portfolioData.data);
                 setIndicators(ind);

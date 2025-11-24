@@ -8,6 +8,7 @@ numpy
 scipy
 tqdm
 requests
+portalocker
 # TA-Lib can be tricky on Windows. If this fails, user might need a wheel.
 # We will try to use it since user code uses it.
 TA-Lib

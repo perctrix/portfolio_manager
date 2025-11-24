@@ -1,9 +1,52 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List
+import logging
+import re
+import threading
+from datetime import datetime, timedelta
+from collections import defaultdict
+from pydantic import BaseModel
 from app.models.portfolio import Portfolio
-from app.core import prices, engine
+from app.core import prices, engine, ticker_validator
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+# Simple in-memory rate limiting (per IP)
+# In production, consider using Redis or a proper rate limiting library
+rate_limit_store = defaultdict(list)
+rate_limit_lock = threading.Lock()
+RATE_LIMIT_REQUESTS = 10  # Max requests
+RATE_LIMIT_WINDOW = 60  # Per 60 seconds
+
+
+def check_rate_limit(client_ip: str) -> bool:
+    """
+    Check if client has exceeded rate limit.
+    Returns True if within limits, False if exceeded.
+    Thread-safe implementation.
+    """
+    with rate_limit_lock:
+        now = datetime.now()
+        cutoff = now - timedelta(seconds=RATE_LIMIT_WINDOW)
+        
+        # Clean old entries
+        rate_limit_store[client_ip] = [
+            timestamp for timestamp in rate_limit_store[client_ip]
+            if timestamp > cutoff
+        ]
+        
+        # Check if exceeded
+        if len(rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return False
+        
+        # Add current request
+        rate_limit_store[client_ip].append(now)
+        return True
+
+
+class TickerValidateRequest(BaseModel):
+    symbol: str
 
 @router.post("/calculate/nav")
 def calculate_nav(portfolio: Portfolio, data: List[dict]):
@@ -17,7 +60,10 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
     try:
         eng = engine.PortfolioEngine(portfolio, data)
         nav = eng.calculate_nav_history()
-        return [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()]
+        return {
+            "nav": [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()],
+            "failed_tickers": eng.failed_tickers
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -56,3 +102,57 @@ def update_price(symbol: str):
     if not success:
         raise HTTPException(status_code=500, detail=f"Failed to update price for {symbol}")
     return {"message": f"Price updated for {symbol}"}
+
+@router.post("/tickers/validate")
+def validate_ticker(request: TickerValidateRequest, req: Request):
+    """
+    Validate if a ticker exists via Yahoo Finance.
+    If valid, adds it to dynamic.json for future use.
+    Rate limited to prevent abuse.
+    """
+    # Get client IP for rate limiting
+    client_ip = req.client.host if req.client else "unknown"
+    
+    # Check rate limit
+    if not check_rate_limit(client_ip):
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Please try again later."
+        )
+    
+    symbol = request.symbol.upper().strip()
+
+    # Validate symbol format
+    if not symbol:
+        logger.warning(f"Empty symbol submitted from IP: {client_ip}")
+        raise HTTPException(status_code=400, detail="Symbol cannot be empty")
+    
+    # Check for whitespace
+    if symbol != symbol.strip() or ' ' in symbol:
+        logger.warning(f"Symbol with whitespace submitted: '{request.symbol}' from IP: {client_ip}")
+        raise HTTPException(status_code=400, detail="Symbol cannot contain whitespace")
+    
+    # Validate allowed characters (alphanumeric, dots, hyphens, carets, equals, underscores)
+    if not re.match(r'^[A-Z0-9.\-^=_]+$', symbol):
+        logger.warning(f"Invalid symbol format submitted: '{symbol}' from IP: {client_ip}")
+        raise HTTPException(
+            status_code=400,
+            detail="Symbol contains invalid characters. Only alphanumeric, dots, hyphens, carets, equals, and underscores are allowed."
+        )
+    
+    # Check maximum length
+    if len(symbol) > 20:
+        logger.warning(f"Symbol too long submitted: '{symbol}' from IP: {client_ip}")
+        raise HTTPException(status_code=400, detail="Symbol is too long (max 20 characters)")
+
+    logger.info(f"Validating ticker: {symbol} from IP: {client_ip}")
+    valid, info = ticker_validator.validate_ticker_via_yahoo(symbol)
+
+    if valid:
+        logger.info(f"Ticker {symbol} validated successfully: {info}")
+        ticker_validator.add_to_dynamic_list(symbol, info)
+        return {"valid": True, "info": info}
+    else:
+        logger.info(f"Ticker {symbol} validation failed")
+        return {"valid": False, "info": None, "message": f"Ticker '{symbol}' not found"}
