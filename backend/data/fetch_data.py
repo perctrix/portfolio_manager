@@ -67,7 +67,7 @@ def get_stealth_headers() -> dict:
 
     return headers
 
-def get_latest_close(ticker: str, start_date: str = None, interval: str = '1d') -> pd.DataFrame | float | None:
+def get_historical_close(ticker: str, start_date: str = None, interval: str = '1d') -> pd.DataFrame | float | None:
     """
     Downloads price data for a given ticker.
 
@@ -79,7 +79,7 @@ def get_latest_close(ticker: str, start_date: str = None, interval: str = '1d') 
     Returns:
     pd.DataFrame | float | None:
         - If start_date provided: DataFrame with columns [Open, High, Low, Close, Volume] and datetime index
-        - If start_date is None: Latest close price as float
+        - If start_date is None: historical close price as float
         - None if error occurs
     """
     current_time: int = int(time.time())
@@ -129,6 +129,6 @@ def get_latest_close(ticker: str, start_date: str = None, interval: str = '1d') 
         return None if not start_date else pd.DataFrame()
 
 if __name__ == "__main__":
-    SYMBOL = 'CADCNY=X'
-    latest_price = get_latest_close(SYMBOL)
-    print(f"Latest {SYMBOL} close price: {latest_price}")
+    SYMBOL = 'NVDA'
+    historical_price = get_historical_close(SYMBOL)
+    print(f"historical {SYMBOL} close price: {historical_price}")
