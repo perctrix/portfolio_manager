@@ -1,7 +1,7 @@
 import json
 import csv
 import os
-from typing import List, Optional
+from typing import Optional
 from app.models.portfolio import Portfolio
 from datetime import datetime
 
@@ -19,7 +19,7 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 PORTFOLIOS_FILE = os.path.join(META_DIR, "portfolios.json")
 
-def _load_portfolios_meta() -> List[dict]:
+def _load_portfolios_meta() -> list[dict]:
     if not os.path.exists(PORTFOLIOS_FILE):
         return []
     with open(PORTFOLIOS_FILE, "r") as f:
@@ -28,11 +28,11 @@ def _load_portfolios_meta() -> List[dict]:
         except json.JSONDecodeError:
             return []
 
-def _save_portfolios_meta(data: List[dict]):
+def _save_portfolios_meta(data: list[dict]) -> None:
     with open(PORTFOLIOS_FILE, "w") as f:
         json.dump(data, f, indent=2, default=str)
 
-def get_all_portfolios() -> List[Portfolio]:
+def get_all_portfolios() -> list[Portfolio]:
     data = _load_portfolios_meta()
     return [Portfolio(**item) for item in data]
 
@@ -64,7 +64,7 @@ def create_portfolio(portfolio: Portfolio) -> Portfolio:
                 
     return portfolio
 
-def save_portfolio_data(portfolio_id: str, fieldnames: List[str], rows: List[dict], append: bool = False):
+def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dict], append: bool = False):
     """Save data to the portfolio's CSV file"""
     csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
     mode = "a" if append else "w"
