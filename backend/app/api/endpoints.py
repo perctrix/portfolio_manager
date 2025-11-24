@@ -67,10 +67,21 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/calculate/indicators")
-def calculate_indicators(portfolio: Portfolio, data: List[dict]):
+@router.post("/calculate/indicators/all")
+def calculate_all_indicators(portfolio: Portfolio, data: List[dict]):
     """
-    Calculate performance indicators for a portfolio.
+    Calculate all performance indicators for a portfolio (approximately 79 indicators).
+
+    Returns indicators organized by category:
+    - returns: total_return, cagr, ytd, mtd, realized_pnl, etc.
+    - risk: volatility, upside/downside volatility, semivariance
+    - drawdown: max_drawdown, avg_drawdown, recovery_time, consecutive days
+    - risk_adjusted_ratios: sharpe, sortino, calmar
+    - tail_risk: VaR, CVaR, skewness, kurtosis
+    - allocation: weights, HHI, concentration, sector allocation
+    - risk_decomposition: MCTR, risk contribution by asset/sector
+    - trading: (Transaction mode only) win_rate, turnover, profit_loss_ratio, etc.
+
     Request body: {
         "portfolio": {...portfolio metadata...},
         "data": [...transactions or positions...]
@@ -78,7 +89,30 @@ def calculate_indicators(portfolio: Portfolio, data: List[dict]):
     """
     try:
         eng = engine.PortfolioEngine(portfolio, data)
-        return eng.get_indicators()
+        return eng.get_all_indicators()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/calculate/indicators/basic")
+def calculate_basic_indicators(portfolio: Portfolio, data: List[dict]):
+    """
+    Calculate 5 basic performance indicators for a portfolio (fast query).
+
+    Returns:
+    - total_return: Total return since inception
+    - cagr: Compound Annual Growth Rate
+    - volatility: Annualized volatility
+    - sharpe: Sharpe ratio
+    - max_drawdown: Maximum drawdown
+
+    Request body: {
+        "portfolio": {...portfolio metadata...},
+        "data": [...transactions or positions...]
+    }
+    """
+    try:
+        eng = engine.PortfolioEngine(portfolio, data)
+        return eng.get_basic_indicators()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
