@@ -113,6 +113,7 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
             })
 
             df.index = pd.to_datetime(timestamps, unit='s')
+            df.index = df.index.normalize()
             df.index.name = 'Date'
             df = df.dropna(subset=['Close'])
 
@@ -127,6 +128,37 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
     except (requests.RequestException, KeyError, ValueError, TypeError) as e:
         print(f"Error: {e}")
         return None if not start_date else pd.DataFrame()
+
+def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: str = '1m') -> float | None:
+    """
+    Downloads the latest closing price for a given ticker.
+
+    Parameters:
+    ticker (str): The ticker symbol to retrieve the latest price for. Defaults to 'CADCNY=X'.
+    interval (str): The time interval for the data. Defaults to '1m'.
+
+    Returns:
+    float | None: The latest closing price for the given ticker, or None if an error occurs.
+    """
+    ticker = f"{currency_1}{currency_2}=X"
+    current_time: int = int(time.time())
+    yesterday_time: int = current_time - 86400
+    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
+           f"?period1={yesterday_time}&period2={current_time}&interval={interval}")
+    try:
+        response = requests.get(url, headers=get_stealth_headers(), timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            result = data['chart']['result'][0]
+            close_prices = result['indicators']['quote'][0]['close']
+
+            for price in reversed(close_prices):
+                if price is not None:
+                    return price
+        return None
+    except (requests.RequestException, KeyError, ValueError, TypeError) as e:
+        print(f"Error: {e}")
+        return None
 
 if __name__ == "__main__":
     SYMBOL = 'NVDA'

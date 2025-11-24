@@ -85,6 +85,8 @@ def get_price_history(symbol: str) -> pd.DataFrame:
         # Try to fetch if not exists
         if not update_price_cache(symbol):
             return pd.DataFrame()
-            
+
     df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+    if not df.empty and hasattr(df.index, 'normalize'):
+        df.index = df.index.normalize()
     return df
