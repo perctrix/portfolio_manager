@@ -28,6 +28,23 @@ def validate_portfolio_id(portfolio_id: str) -> bool:
         return False
     return bool(re.match(r'^p_[a-f0-9]{8}$', portfolio_id))
 
+def get_safe_portfolio_path(portfolio_id: str) -> str:
+    """
+    Construct and validate a safe path for portfolio CSV file.
+    Raises ValueError if the path is outside the portfolios directory.
+    """
+    if not validate_portfolio_id(portfolio_id):
+        raise ValueError(f"Invalid portfolio ID: {portfolio_id}")
+
+    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
+    csv_path_abs = os.path.abspath(csv_path)
+    base_dir_abs = os.path.abspath(PORTFOLIOS_DIR)
+
+    if not csv_path_abs.startswith(base_dir_abs + os.sep):
+        raise ValueError(f"Invalid portfolio path: {portfolio_id}")
+
+    return csv_path_abs
+
 def _load_portfolios_meta() -> list[dict]:
     if not os.path.exists(PORTFOLIOS_FILE):
         return []
@@ -75,10 +92,7 @@ def create_portfolio(portfolio: Portfolio) -> Portfolio:
 
 def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dict], append: bool = False):
     """Save data to the portfolio's CSV file"""
-    if not validate_portfolio_id(portfolio_id):
-        raise ValueError(f"Invalid portfolio ID: {portfolio_id}")
-
-    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
+    csv_path = get_safe_portfolio_path(portfolio_id)
     mode = "a" if append else "w"
 
     # If appending and file doesn't exist, switch to write to include header
@@ -93,7 +107,9 @@ def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dic
 
 def delete_portfolio(portfolio_id: str) -> bool:
     """Delete portfolio metadata and data file"""
-    if not validate_portfolio_id(portfolio_id):
+    try:
+        csv_path = get_safe_portfolio_path(portfolio_id)
+    except ValueError:
         return False
 
     portfolios = _load_portfolios_meta()
@@ -107,7 +123,6 @@ def delete_portfolio(portfolio_id: str) -> bool:
     _save_portfolios_meta(new_portfolios)
 
     # Delete CSV
-    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
     if os.path.exists(csv_path):
         os.remove(csv_path)
 

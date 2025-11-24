@@ -160,15 +160,16 @@ def get_price_history(symbol: str):
 @router.get("/portfolios/{portfolio_id}/export")
 def export_portfolio(portfolio_id: str):
     """Export portfolio as JSON (meta + data)"""
-    if not storage.validate_portfolio_id(portfolio_id):
-        raise HTTPException(status_code=400, detail="Invalid portfolio ID")
+    try:
+        csv_path = storage.get_safe_portfolio_path(portfolio_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     portfolio = storage.get_portfolio(portfolio_id)
     if not portfolio:
         raise HTTPException(status_code=404, detail="Portfolio not found")
 
     # Get data
-    csv_path = os.path.join(storage.PORTFOLIOS_DIR, f"{portfolio_id}.csv")
     data = []
     if os.path.exists(csv_path):
         with open(csv_path, "r") as f:
