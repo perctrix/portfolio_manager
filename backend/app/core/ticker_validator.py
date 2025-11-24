@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+import time
+import fcntl
 from typing import Optional
 from datetime import datetime
 from app.core import storage
@@ -8,42 +10,71 @@ from app.core import storage
 DYNAMIC_TICKERS_FILE = os.path.join(storage.TICKERS_DIR, "dynamic.json")
 
 
-def validate_ticker_via_yahoo(symbol: str) -> tuple[bool, Optional[dict]]:
+def validate_ticker_via_yahoo(symbol: str, max_retries: int = 3) -> tuple[bool, Optional[dict]]:
     """
-    Validate ticker via Yahoo Finance search API.
+    Validate ticker via Yahoo Finance search API with retry mechanism.
     Returns (is_valid, ticker_info)
     """
     symbol = symbol.upper().strip()
 
-    try:
-        url = "https://query2.finance.yahoo.com/v1/finance/search"
-        params = {
-            'q': symbol,
-            'quotes_count': 5,
-            'news_count': 0
-        }
+    for attempt in range(max_retries):
+        try:
+            url = "https://query2.finance.yahoo.com/v1/finance/search"
+            params = {
+                'q': symbol,
+                'quotes_count': 5,
+                'news_count': 0
+            }
 
-        response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, params=params, timeout=10)
 
-        if response.status_code == 200:
-            data = response.json()
-            quotes = data.get('quotes', [])
+            if response.status_code == 200:
+                data = response.json()
+                quotes = data.get('quotes', [])
 
-            for quote in quotes:
-                if quote.get('symbol', '').upper() == symbol:
-                    info = {
-                        'symbol': symbol,
-                        'name': quote.get('longname') or quote.get('shortname', ''),
-                        'exchange': quote.get('exchange', 'UNKNOWN'),
-                        'type': quote.get('quoteType', 'EQUITY').lower()
-                    }
-                    return True, info
+                for quote in quotes:
+                    if quote.get('symbol', '').upper() == symbol:
+                        info = {
+                            'symbol': symbol,
+                            'name': quote.get('longname') or quote.get('shortname') or symbol,
+                            'exchange': quote.get('exchange', 'UNKNOWN'),
+                            'type': quote.get('quoteType', 'EQUITY').lower()
+                        }
+                        return True, info
 
-        return False, None
+                # Symbol not found in results
+                return False, None
+            else:
+                print(f"Yahoo Finance API returned status code {response.status_code} for symbol {symbol}: {response.reason}")
+                # For client errors (4xx), don't retry - ticker doesn't exist
+                if 400 <= response.status_code < 500:
+                    return False, None
+                # For server errors (5xx), retry with backoff
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # exponential backoff
+                    print(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                return False, None
 
-    except Exception as e:
-        print(f"Error validating ticker {symbol}: {e}")
-        return False, None
+        except requests.exceptions.Timeout:
+            print(f"Timeout occurred while validating ticker {symbol}")
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                print(f"Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                continue
+            return False, None
+        except Exception as e:
+            print(f"Error validating ticker {symbol}: {e}")
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                print(f"Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                continue
+            return False, None
+
+    return False, None
 
 
 def load_dynamic_tickers() -> dict:
@@ -63,30 +94,42 @@ def load_dynamic_tickers() -> dict:
 def add_to_dynamic_list(symbol: str, info: dict) -> bool:
     """
     Add validated ticker to dynamic.json for future use.
+    Uses file locking to prevent race conditions.
     """
     try:
-        tickers_dict = load_dynamic_tickers()
-
-        tickers_dict[symbol] = {
-            'symbol': info['symbol'],
-            'name': info['name'],
-            'exchange': info['exchange'],
-            'type': info['type']
-        }
-
-        data = {
-            'comment': 'Dynamically added tickers validated by users',
-            'last_updated': datetime.now().isoformat(),
-            'count': len(tickers_dict),
-            'tickers': list(tickers_dict.values())
-        }
-
         os.makedirs(os.path.dirname(DYNAMIC_TICKERS_FILE), exist_ok=True)
-        with open(DYNAMIC_TICKERS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # Open file with locking for atomic read-modify-write
+        lock_file = DYNAMIC_TICKERS_FILE + '.lock'
+        with open(lock_file, 'w') as lock_fd:
+            # Acquire exclusive lock
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+            
+            try:
+                tickers_dict = load_dynamic_tickers()
 
-        print(f"Added ticker {symbol} to dynamic list")
-        return True
+                tickers_dict[symbol] = {
+                    'symbol': info['symbol'],
+                    'name': info['name'],
+                    'exchange': info['exchange'],
+                    'type': info['type']
+                }
+
+                data = {
+                    'comment': 'Dynamically added tickers validated by users',
+                    'last_updated': datetime.now().isoformat(),
+                    'count': len(tickers_dict),
+                    'tickers': list(tickers_dict.values())
+                }
+
+                with open(DYNAMIC_TICKERS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+
+                print(f"Added ticker {symbol} to dynamic list")
+                return True
+            finally:
+                # Release lock
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
 
     except Exception as e:
         print(f"Error adding ticker {symbol} to dynamic list: {e}")

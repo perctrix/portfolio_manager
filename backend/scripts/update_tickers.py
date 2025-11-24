@@ -10,7 +10,7 @@ from app.core import storage
 
 def download_nasdaq_tickers() -> list[dict]:
     """
-    Download ticker list from NASDAQ FTP.
+    Download ticker list from NASDAQ web source.
     Returns list of ticker dicts.
     """
     tickers = []
@@ -79,6 +79,9 @@ def download_nasdaq_tickers() -> list[dict]:
     except Exception as e:
         print(f"Error downloading other exchange tickers: {e}")
 
+    if not tickers:
+        raise RuntimeError("Failed to download any NASDAQ or other exchange tickers. Both downloads failed.")
+
     return tickers
 
 
@@ -139,7 +142,7 @@ def save_to_frontend(tickers: list[dict], output_path: str) -> bool:
                 'count': len(tickers),
                 'sources': ['nasdaq', 'manual', 'dynamic']
             },
-            'tickers': sorted(tickers, key=lambda x: x['symbol'])
+            'tickers': sorted(tickers, key=lambda x: x.get('symbol', ''))
         }
 
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -176,9 +179,7 @@ def main():
 
     print(f"  Total after deduplication: {len(all_tickers)} tickers")
 
-    frontend_data_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', 'frontend', 'public', 'data', 'tickers.json'
-    )
+    frontend_data_path = os.path.join(storage.FRONTEND_DATA_DIR, 'tickers.json')
 
     success = save_to_frontend(all_tickers, frontend_data_path)
 
