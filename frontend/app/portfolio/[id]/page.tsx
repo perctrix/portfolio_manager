@@ -2,12 +2,15 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Portfolio } from '@/types';
 import { MetricsCard } from '@/components/MetricsCard';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
+import { deletePortfolio } from '@/lib/api';
+import { removeMyPortfolio } from '@/lib/storage';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -77,6 +80,43 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         loadData(); // Reload
     }
 
+    const router = useRouter();
+
+    async function handleExport() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/portfolios/${id}/export`);
+            if (!res.ok) throw new Error('Failed to export');
+            const data = await res.json();
+
+            // Create download
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `portfolio-${portfolio?.name || id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to export portfolio');
+        }
+    }
+
+    async function handleDelete() {
+        if (!confirm('Are you sure you want to delete this portfolio? This action cannot be undone.')) return;
+
+        try {
+            await deletePortfolio(id);
+            removeMyPortfolio(id);
+            router.push('/');
+        } catch (e) {
+            console.error(e);
+            alert('Failed to delete portfolio');
+        }
+    }
+
     async function toggleTicker(symbol: string) {
         const newSelected = new Set(selectedTickers);
         if (newSelected.has(symbol)) {
@@ -124,6 +164,21 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         </div>
                     </div>
                     <div className="flex gap-3">
+                        <button
+                            onClick={handleExport}
+                            className="text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            title="Export Portfolio"
+                        >
+                            <Download size={20} />
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="text-gray-600 hover:text-red-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            title="Delete Portfolio"
+                        >
+                            <Trash2 size={20} />
+                        </button>
+                        <div className="w-px bg-gray-300 mx-1"></div>
                         {portfolio.type === 'transaction' ? (
                             <button
                                 onClick={() => setIsAddTxnOpen(true)}

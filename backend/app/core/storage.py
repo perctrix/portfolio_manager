@@ -1,6 +1,7 @@
 import json
 import csv
 import os
+import re
 from typing import Optional
 from app.models.portfolio import Portfolio
 from datetime import datetime
@@ -9,15 +10,40 @@ DATA_DIR = "data"
 META_DIR = os.path.join(DATA_DIR, "meta")
 PORTFOLIOS_DIR = os.path.join(DATA_DIR, "portfolios")
 PRICES_DIR = os.path.join(DATA_DIR, "prices")
-CACHE_DIR = os.path.join(DATA_DIR, "cache")
 
 # Ensure directories exist
 os.makedirs(META_DIR, exist_ok=True)
 os.makedirs(PORTFOLIOS_DIR, exist_ok=True)
 os.makedirs(PRICES_DIR, exist_ok=True)
-os.makedirs(CACHE_DIR, exist_ok=True)
 
 PORTFOLIOS_FILE = os.path.join(META_DIR, "portfolios.json")
+
+def validate_portfolio_id(portfolio_id: str) -> bool:
+    """
+    Validate portfolio ID to prevent path injection attacks.
+    Format: p_ followed by 8 hexadecimal characters (from UUID).
+    Example: p_a1b2c3d4
+    """
+    if not portfolio_id:
+        return False
+    return bool(re.match(r'^p_[a-f0-9]{8}$', portfolio_id))
+
+def get_safe_portfolio_path(portfolio_id: str) -> str:
+    """
+    Construct and validate a safe path for portfolio CSV file.
+    Raises ValueError if the path is outside the portfolios directory.
+    """
+    if not validate_portfolio_id(portfolio_id):
+        raise ValueError(f"Invalid portfolio ID: {portfolio_id}")
+
+    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
+    csv_path_abs = os.path.abspath(csv_path)
+    base_dir_abs = os.path.abspath(PORTFOLIOS_DIR)
+
+    if not csv_path_abs.startswith(base_dir_abs + os.sep):
+        raise ValueError(f"Invalid portfolio path: {portfolio_id}")
+
+    return csv_path_abs
 
 def _load_portfolios_meta() -> list[dict]:
     if not os.path.exists(PORTFOLIOS_FILE):
@@ -66,16 +92,39 @@ def create_portfolio(portfolio: Portfolio) -> Portfolio:
 
 def save_portfolio_data(portfolio_id: str, fieldnames: list[str], rows: list[dict], append: bool = False):
     """Save data to the portfolio's CSV file"""
-    csv_path = os.path.join(PORTFOLIOS_DIR, f"{portfolio_id}.csv")
+    csv_path = get_safe_portfolio_path(portfolio_id)
     mode = "a" if append else "w"
-    
+
     # If appending and file doesn't exist, switch to write to include header
     if append and not os.path.exists(csv_path):
         mode = "w"
-        
+
     with open(csv_path, mode, newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         if mode == "w":
             writer.writeheader()
         writer.writerows(rows)
+
+def delete_portfolio(portfolio_id: str) -> bool:
+    """Delete portfolio metadata and data file"""
+    try:
+        csv_path = get_safe_portfolio_path(portfolio_id)
+    except ValueError:
+        return False
+
+    portfolios = _load_portfolios_meta()
+
+    # Filter out the portfolio
+    new_portfolios = [p for p in portfolios if p['id'] != portfolio_id]
+
+    if len(new_portfolios) == len(portfolios):
+        return False  # Not found
+
+    _save_portfolios_meta(new_portfolios)
+
+    # Delete CSV
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+
+    return True
 
