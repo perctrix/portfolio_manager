@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 import pandas as pd
 import portalocker
 from dataclasses import dataclass
@@ -9,6 +10,33 @@ from typing import Dict, Optional, Callable
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
+
+
+def validate_symbol(symbol: str) -> str:
+    """Validate and sanitize stock ticker symbol to prevent path traversal attacks
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Validated symbol
+
+    Raises:
+        ValueError: If symbol contains invalid characters
+    """
+    if not symbol or not isinstance(symbol, str):
+        raise ValueError("Symbol must be a non-empty string")
+
+    if not re.match(r'^[A-Z0-9\.\^\_\-]+$', symbol):
+        raise ValueError(f"Invalid symbol: {symbol}. Only alphanumeric, '.', '^', '_', '-' allowed")
+
+    if '..' in symbol or '/' in symbol or '\\' in symbol:
+        raise ValueError(f"Invalid symbol: {symbol}. Path traversal characters not allowed")
+
+    if len(symbol) > 20:
+        raise ValueError(f"Invalid symbol: {symbol}. Symbol too long (max 20 characters)")
+
+    return symbol
 
 
 @dataclass
@@ -72,6 +100,7 @@ class PriceCacheManager:
         Returns:
             True if cache is valid, False otherwise
         """
+        symbol = validate_symbol(symbol)
         metadata = self._load_metadata()
 
         if symbol not in metadata:
@@ -97,6 +126,7 @@ class PriceCacheManager:
         Returns:
             Price data DataFrame
         """
+        symbol = validate_symbol(symbol)
         if self.is_cache_valid(symbol):
             logger.info(f"Cache hit for {symbol}")
             return self._read_csv(symbol)
@@ -174,6 +204,7 @@ class PriceCacheManager:
         Returns:
             CacheMetadata if CSV exists, None otherwise
         """
+        symbol = validate_symbol(symbol)
         csv_path = os.path.join(self.prices_dir, f"{symbol}.csv")
         if not os.path.exists(csv_path):
             return None
@@ -213,6 +244,7 @@ class PriceCacheManager:
             symbol: Stock ticker symbol
             data: Price data to cache
         """
+        symbol = validate_symbol(symbol)
         if data.empty:
             logger.warning(f"Attempted to cache empty data for {symbol}")
             return
@@ -240,6 +272,7 @@ class PriceCacheManager:
         Returns:
             Price data DataFrame
         """
+        symbol = validate_symbol(symbol)
         csv_path = os.path.join(self.prices_dir, f"{symbol}.csv")
 
         if not os.path.exists(csv_path):
