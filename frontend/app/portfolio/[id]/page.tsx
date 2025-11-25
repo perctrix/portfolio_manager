@@ -297,7 +297,10 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <MetricsCard title="Sortino" value={indicators.sortino || 0} />
                     <MetricsCard title="Calmar" value={indicators.calmar || 0} />
                     <MetricsCard title="VaR (95%)" value={`${(indicators.var_95 * 100 || 0).toFixed(2)}%`} />
-                    <MetricsCard title="HHI (Concentration)" value={indicators.hhi || 0} />
+                    <MetricsCard
+                        title="Beta (vs S&P 500)"
+                        value={benchmarkComparison?.['^GSPC']?.metrics.beta?.toFixed(2) || 'N/A'}
+                    />
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
