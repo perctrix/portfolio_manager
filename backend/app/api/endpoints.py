@@ -392,21 +392,21 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
 
 @router.get("/scheduler/status")
 def get_scheduler_status():
-    """Get benchmark scheduler status and next run times"""
+    """Get benchmark scheduler status and next run times
+
+    Note: The scheduler.get_status_info() method should return the running status and next run times atomically.
+    """
     from app.core.scheduler import get_scheduler
 
     try:
         scheduler = get_scheduler()
-        is_running = scheduler.scheduler.running
-
-        next_runs = []
-        if is_running:
-            next_runs = scheduler.get_next_run_times()
-
+        # get_status_info() should return a dict like:
+        # {"is_running": bool, "next_runs": [...], "update_times": [...]}
+        status_info = scheduler.get_status_info()
         return {
-            "status": "running" if is_running else "stopped",
-            "next_scheduled_updates": next_runs,
-            "update_times": scheduler.update_times
+            "status": "running" if status_info.get("is_running") else "stopped",
+            "next_scheduled_updates": status_info.get("next_runs", []),
+            "update_times": status_info.get("update_times", [])
         }
 
     except Exception as e:
