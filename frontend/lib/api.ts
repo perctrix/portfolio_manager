@@ -1,7 +1,7 @@
 import { Portfolio } from '@/types';
 import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 async function safeJsonParse(response: Response): Promise<any> {
     try {
