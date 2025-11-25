@@ -84,12 +84,32 @@ class PriceCacheManager:
     """Thread-safe price cache manager with metadata tracking"""
 
     def __init__(self, prices_dir: str, ttl_hours: float):
-        self.prices_dir: str = prices_dir
+        self.prices_dir: str = os.path.abspath(prices_dir)
         self.ttl: timedelta = timedelta(hours=ttl_hours)
-        self.metadata_file: str = os.path.join(prices_dir, "metadata.json")
+        self.metadata_file: str = os.path.join(self.prices_dir, "metadata.json")
         self.metadata_lock_file: str = self.metadata_file + ".lock"
 
-        os.makedirs(prices_dir, exist_ok=True)
+        os.makedirs(self.prices_dir, exist_ok=True)
+
+    def _get_safe_csv_path(self, symbol: str) -> str:
+        """Get safe CSV path with validation to prevent path traversal
+
+        Args:
+            symbol: Stock ticker symbol (must be validated)
+
+        Returns:
+            Absolute path to CSV file
+
+        Raises:
+            ValueError: If path is outside prices directory
+        """
+        symbol = validate_symbol(symbol)
+        csv_path = os.path.abspath(os.path.join(self.prices_dir, f"{symbol}.csv"))
+
+        if not csv_path.startswith(self.prices_dir + os.sep):
+            raise ValueError(f"Invalid path: {csv_path} is outside prices directory")
+
+        return csv_path
 
     def is_cache_valid(self, symbol: str) -> bool:
         """Check if cache exists and not expired
@@ -204,8 +224,7 @@ class PriceCacheManager:
         Returns:
             CacheMetadata if CSV exists, None otherwise
         """
-        symbol = validate_symbol(symbol)
-        csv_path = os.path.join(self.prices_dir, f"{symbol}.csv")
+        csv_path = self._get_safe_csv_path(symbol)
         if not os.path.exists(csv_path):
             return None
 
@@ -244,12 +263,11 @@ class PriceCacheManager:
             symbol: Stock ticker symbol
             data: Price data to cache
         """
-        symbol = validate_symbol(symbol)
         if data.empty:
             logger.warning(f"Attempted to cache empty data for {symbol}")
             return
 
-        csv_path = os.path.join(self.prices_dir, f"{symbol}.csv")
+        csv_path = self._get_safe_csv_path(symbol)
         data.to_csv(csv_path)
         logger.debug(f"Saved CSV for {symbol}")
 
@@ -272,8 +290,7 @@ class PriceCacheManager:
         Returns:
             Price data DataFrame
         """
-        symbol = validate_symbol(symbol)
-        csv_path = os.path.join(self.prices_dir, f"{symbol}.csv")
+        csv_path = self._get_safe_csv_path(symbol)
 
         if not os.path.exists(csv_path):
             logger.warning(f"CSV file not found for {symbol}")
