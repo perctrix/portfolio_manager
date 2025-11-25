@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Legend, ReferenceDot } from 'recharts';
 
 interface NavChartProps {
     data: { date: string; value: number }[];
@@ -450,17 +450,33 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
 
                     {maxDrawdown && (
                         <>
-                            <ReferenceArea
-                                x1={maxDrawdown.startDate}
-                                x2={maxDrawdown.endDate}
-                                strokeOpacity={0.3}
+                            <ReferenceDot
+                                x={maxDrawdown.startDate}
+                                y={maxDrawdown.peakValue}
+                                r={6}
                                 fill="#ef4444"
-                                fillOpacity={0.05}
+                                stroke="#fff"
+                                strokeWidth={2}
                                 label={{
-                                    value: `Max DD: ${(maxDrawdown.drawdown * 100).toFixed(2)}%`,
+                                    value: 'Peak',
                                     position: 'top',
                                     fill: '#ef4444',
-                                    fontSize: 12,
+                                    fontSize: 11,
+                                    fontWeight: 'bold'
+                                }}
+                            />
+                            <ReferenceDot
+                                x={maxDrawdown.endDate}
+                                y={maxDrawdown.troughValue}
+                                r={6}
+                                fill="#ef4444"
+                                stroke="#fff"
+                                strokeWidth={2}
+                                label={{
+                                    value: `${(maxDrawdown.drawdown * 100).toFixed(2)}%`,
+                                    position: 'bottom',
+                                    fill: '#ef4444',
+                                    fontSize: 11,
                                     fontWeight: 'bold'
                                 }}
                             />
