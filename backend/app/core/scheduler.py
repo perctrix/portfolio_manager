@@ -125,26 +125,26 @@ class BenchmarkScheduler:
 
 scheduler_instance = None
 _scheduler_lock = threading.Lock()
-_start_lock = threading.Lock()
 
 
 def get_scheduler() -> BenchmarkScheduler:
     """Get or create the global scheduler instance (thread-safe)"""
     global scheduler_instance
-    if scheduler_instance is None:
-        with _scheduler_lock:
-            if scheduler_instance is None:
-                scheduler_instance = BenchmarkScheduler()
+    with _scheduler_lock:
+        if scheduler_instance is None:
+            scheduler_instance = BenchmarkScheduler()
     return scheduler_instance
 
 
 def start_scheduler() -> BenchmarkScheduler:
     """Start the benchmark scheduler (thread-safe)"""
-    scheduler = get_scheduler()
-    with _start_lock:
-        if not scheduler.scheduler.running:
-            scheduler.start()
-    return scheduler
+    global scheduler_instance
+    with _scheduler_lock:
+        if scheduler_instance is None:
+            scheduler_instance = BenchmarkScheduler()
+        if not scheduler_instance.scheduler.running:
+            scheduler_instance.start()
+    return scheduler_instance
 
 
 def stop_scheduler() -> None:
