@@ -307,9 +307,9 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             <IndicatorGrid
                                 indicators={[
                                     { label: 'Max Drawdown', value: allIndicators.drawdown.max_drawdown, format: 'percentage', trend: 'down' },
-                                    { label: 'Max Drawdown Duration', value: allIndicators.drawdown.max_drawdown_duration, format: 'days' },
+                                    { label: 'Max Drawdown Duration', value: allIndicators.drawdown.max_drawdown_duration || 0, format: 'days' },
                                     { label: 'Average Drawdown', value: allIndicators.drawdown.avg_drawdown, format: 'percentage' },
-                                    { label: 'Recovery Time', value: allIndicators.drawdown.recovery_time, format: 'days' },
+                                    { label: 'Recovery Days', value: allIndicators.drawdown.recovery_days || 0, format: 'days' },
                                     { label: 'Consecutive Loss Days', value: allIndicators.drawdown.consecutive_loss_days, format: 'days' },
                                     { label: 'Consecutive Gain Days', value: allIndicators.drawdown.consecutive_gain_days, format: 'days' },
                                 ]}
