@@ -37,6 +37,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [benchmarkData, setBenchmarkData] = useState<{ [key: string]: any[] }>({});
     const [benchmarkComparison, setBenchmarkComparison] = useState<BenchmarkComparison | null>(null);
     const [loadingBenchmarkComparison, setLoadingBenchmarkComparison] = useState(false);
+    const [selectedBetaBenchmark, setSelectedBetaBenchmark] = useState<string>('^GSPC');
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
 
@@ -297,10 +298,27 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <MetricsCard title="Sortino" value={indicators.sortino || 0} />
                     <MetricsCard title="Calmar" value={indicators.calmar || 0} />
                     <MetricsCard title="VaR (95%)" value={`${(indicators.var_95 * 100 || 0).toFixed(2)}%`} />
-                    <MetricsCard
-                        title="Beta (vs S&P 500)"
-                        value={benchmarkComparison?.['^GSPC']?.metrics.beta?.toFixed(2) || 'N/A'}
-                    />
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-sm text-gray-500">Beta</h3>
+                            {benchmarkComparison && (
+                                <select
+                                    value={selectedBetaBenchmark}
+                                    onChange={(e) => setSelectedBetaBenchmark(e.target.value)}
+                                    className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
+                                >
+                                    {Object.entries(benchmarkComparison).map(([symbol, data]) => (
+                                        <option key={symbol} value={symbol}>
+                                            vs {data.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">
+                            {benchmarkComparison?.[selectedBetaBenchmark]?.metrics.beta?.toFixed(2) || 'N/A'}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -319,14 +337,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     selectedBenchmarks={selectedBenchmarks}
                     onToggleBenchmark={toggleBenchmark}
                 />
-
-                {loadingBenchmarkComparison ? (
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <p className="text-sm text-gray-400">Loading benchmark comparison...</p>
-                    </div>
-                ) : benchmarkComparison && (
-                    <BenchmarkComparisonTable comparison={benchmarkComparison} />
-                )}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6 border-b border-gray-100">
@@ -409,6 +419,14 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         </table>
                     </div>
                 </div>
+
+                {loadingBenchmarkComparison ? (
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <p className="text-sm text-gray-400">Loading benchmark comparison...</p>
+                    </div>
+                ) : benchmarkComparison && (
+                    <BenchmarkComparisonTable comparison={benchmarkComparison} />
+                )}
 
                 {allIndicators && (
                     <>
