@@ -5,7 +5,13 @@
       "Bash(gh pr checks:*)",
       "Bash(gh api:*)",
       "Bash(cat:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "WebSearch",
+      "WebFetch(domain:www.nasdaqtrader.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh issue view:*)",
+      "WebFetch(domain:ta-lib.github.io)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

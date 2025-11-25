@@ -87,6 +87,22 @@ def calculate_all_portfolio_indicators(
 
     if transactions is not None and not transactions.empty:
         result['returns']['realized_pnl'] = returns_module.calculate_realized_pnl(transactions)
+        result['returns']['twr'] = returns_module.calculate_twr(nav)
+        result['returns']['irr'] = returns_module.calculate_irr(transactions)
+    else:
+        result['returns']['realized_pnl'] = 0.0
+        result['returns']['twr'] = returns_module.calculate_cagr(nav)
+        result['returns']['irr'] = 0.0
+
+    if holdings is not None and prices is not None:
+        result['returns']['unrealized_pnl'] = returns_module.calculate_unrealized_pnl(holdings, prices)
+    else:
+        result['returns']['unrealized_pnl'] = 0.0
+
+    result['returns']['total_pnl'] = returns_module.calculate_total_pnl(
+        result['returns']['realized_pnl'],
+        result['returns']['unrealized_pnl']
+    )
 
     monthly_returns = returns_module.calculate_monthly_returns(returns)
     result['returns']['monthly_returns'] = monthly_returns.to_dict() if not monthly_returns.empty else {}
@@ -97,6 +113,9 @@ def calculate_all_portfolio_indicators(
     result['risk']['upside_volatility'] = risk_module.calculate_upside_volatility(returns)
     result['risk']['downside_volatility'] = risk_module.calculate_downside_volatility(returns)
     result['risk']['semivariance'] = risk_module.calculate_semivariance(returns)
+
+    rolling_vol_30d = risk_module.calculate_rolling_volatility(returns, window=30)
+    result['risk']['rolling_volatility_30d'] = float(rolling_vol_30d.iloc[-1]) if not rolling_vol_30d.empty and len(rolling_vol_30d) > 0 else 0.0
 
     result['drawdown'] = {}
     result['drawdown']['max_drawdown'] = drawdown_module.calculate_max_drawdown(nav)
@@ -116,6 +135,9 @@ def calculate_all_portfolio_indicators(
     result['risk_adjusted_ratios']['sharpe'] = ratios_module.calculate_sharpe_ratio(returns)
     result['risk_adjusted_ratios']['sortino'] = ratios_module.calculate_sortino_ratio(returns)
     result['risk_adjusted_ratios']['calmar'] = ratios_module.calculate_calmar_ratio(nav, returns)
+
+    rolling_sharpe_30d = ratios_module.calculate_rolling_sharpe(returns, window=30)
+    result['risk_adjusted_ratios']['rolling_sharpe_30d'] = float(rolling_sharpe_30d.iloc[-1]) if not rolling_sharpe_30d.empty and len(rolling_sharpe_30d) > 0 else 0.0
 
     result['tail_risk'] = {}
     result['tail_risk']['var_95'] = tail_risk_module.calculate_var(returns, 0.95)

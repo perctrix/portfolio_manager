@@ -5,7 +5,11 @@ export interface ReturnsMetrics {
   annualized_return: number;
   ytd_return: number;
   mtd_return: number;
-  realized_pnl?: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  total_pnl: number;
+  twr: number;
+  irr: number;
   monthly_returns: { [key: string]: number };
 }
 
@@ -15,6 +19,7 @@ export interface RiskMetrics {
   upside_volatility: number;
   downside_volatility: number;
   semivariance: number;
+  rolling_volatility_30d: number;
 }
 
 export interface DrawdownMetrics {
@@ -35,6 +40,7 @@ export interface RiskAdjustedRatios {
   sharpe: number;
   sortino: number;
   calmar: number;
+  rolling_sharpe_30d: number;
 }
 
 export interface TailRiskMetrics {
