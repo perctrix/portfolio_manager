@@ -96,8 +96,6 @@ class BenchmarkScheduler:
             )
             logger.info(f"Scheduled benchmark update for weekdays at {hour}:00")
 
-        self.scheduler.start()
-
         self.scheduler.add_job(
             self.check_and_download_missing_benchmarks,
             'date',
@@ -105,6 +103,8 @@ class BenchmarkScheduler:
             id='initial_benchmark_check'
         )
 
+        # Start scheduler after all jobs are configured
+        self.scheduler.start()
         logger.info("Benchmark scheduler started successfully")
 
     def stop(self) -> None:
