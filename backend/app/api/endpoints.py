@@ -425,8 +425,7 @@ async def trigger_benchmark_update():
             scheduler.update_all_benchmarks,
             'date',
             run_date=datetime.now(),
-            id='manual_update',
-            replace_existing=True
+            id=f'manual_update_{datetime.now().timestamp()}'
         )
 
         return {
