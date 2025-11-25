@@ -415,17 +415,23 @@ def get_scheduler_status():
 
 
 @router.post("/scheduler/update-now")
-def trigger_benchmark_update():
+async def trigger_benchmark_update():
     """Manually trigger benchmark data update"""
     from app.core.scheduler import get_scheduler
 
     try:
         scheduler = get_scheduler()
-        scheduler.update_all_benchmarks()
+        scheduler.scheduler.add_job(
+            scheduler.update_all_benchmarks,
+            'date',
+            run_date=datetime.now(),
+            id='manual_update',
+            replace_existing=True
+        )
 
         return {
             "status": "success",
-            "message": "Benchmark update triggered successfully"
+            "message": "Benchmark update scheduled successfully"
         }
 
     except Exception as e:

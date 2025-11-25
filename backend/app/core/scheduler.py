@@ -1,4 +1,6 @@
 import logging
+import threading
+from datetime import datetime
 from typing import List
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -14,6 +16,7 @@ class BenchmarkScheduler:
     def __init__(self):
         self.scheduler = BackgroundScheduler()
         self.benchmark_loader = BenchmarkLoader()
+        # Update times in hours (server local time) for weekday updates
         self.update_times = [6, 10, 12, 14, 16, 18]
 
     def update_all_benchmarks(self) -> None:
@@ -83,8 +86,6 @@ class BenchmarkScheduler:
         """Start the scheduler and perform initial check"""
         logger.info("Starting benchmark scheduler")
 
-        self.check_and_download_missing_benchmarks()
-
         for hour in self.update_times:
             self.scheduler.add_job(
                 self.update_all_benchmarks,
@@ -96,6 +97,14 @@ class BenchmarkScheduler:
             logger.info(f"Scheduled benchmark update for weekdays at {hour}:00")
 
         self.scheduler.start()
+
+        self.scheduler.add_job(
+            self.check_and_download_missing_benchmarks,
+            'date',
+            run_date=datetime.now(),
+            id='initial_benchmark_check'
+        )
+
         logger.info("Benchmark scheduler started successfully")
 
     def stop(self) -> None:
@@ -115,21 +124,26 @@ class BenchmarkScheduler:
 
 
 scheduler_instance = None
+_scheduler_lock = threading.Lock()
+_start_lock = threading.Lock()
 
 
 def get_scheduler() -> BenchmarkScheduler:
-    """Get or create the global scheduler instance"""
+    """Get or create the global scheduler instance (thread-safe)"""
     global scheduler_instance
     if scheduler_instance is None:
-        scheduler_instance = BenchmarkScheduler()
+        with _scheduler_lock:
+            if scheduler_instance is None:
+                scheduler_instance = BenchmarkScheduler()
     return scheduler_instance
 
 
 def start_scheduler() -> BenchmarkScheduler:
-    """Start the benchmark scheduler"""
+    """Start the benchmark scheduler (thread-safe)"""
     scheduler = get_scheduler()
-    if not scheduler.scheduler.running:
-        scheduler.start()
+    with _start_lock:
+        if not scheduler.scheduler.running:
+            scheduler.start()
     return scheduler
 
 
