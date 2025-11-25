@@ -252,6 +252,100 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <MetricsCard title="HHI (Concentration)" value={indicators.hhi || 0} />
                 </div>
 
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-lg font-semibold">
+                            {selectedTickers.size > 0 ? 'Performance Comparison (%)' : 'NAV History'}
+                        </h2>
+                        {selectedTickers.size > 0 && (
+                            <span className="text-xs text-gray-500">Normalized to 0% at start</span>
+                        )}
+                    </div>
+                    <NavChart data={navHistory} comparisonData={comparisonData} />
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-100">
+                        <h2 className="text-lg font-semibold">
+                            {portfolio.type === 'transaction' ? 'Transaction History' : 'Current Positions'}
+                        </h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-500 font-medium">
+                                <tr>
+                                    <th className="px-6 py-3 w-10"></th>
+                                    {portfolio.type === 'transaction' ? (
+                                        <>
+                                            <th className="px-6 py-3">Date</th>
+                                            <th className="px-6 py-3">Symbol</th>
+                                            <th className="px-6 py-3">Side</th>
+                                            <th className="px-6 py-3 text-right">Qty</th>
+                                            <th className="px-6 py-3 text-right">Price</th>
+                                            <th className="px-6 py-3 text-right">Fee</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="px-6 py-3">Symbol</th>
+                                            <th className="px-6 py-3 text-right">Quantity</th>
+                                            <th className="px-6 py-3 text-right">Cost Basis</th>
+                                            <th className="px-6 py-3">As Of</th>
+                                        </>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {holdings.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                                            No data available
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    holdings.map((row, i) => (
+                                        <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3">
+                                                {row.symbol && row.symbol !== 'CASH' && (
+                                                    <button
+                                                        onClick={() => toggleTicker(row.symbol)}
+                                                        className={`p-1 rounded hover:bg-gray-200 ${selectedTickers.has(row.symbol) ? 'text-blue-600' : 'text-gray-400'}`}
+                                                        title="Toggle on Chart"
+                                                    >
+                                                        {selectedTickers.has(row.symbol) ? <Eye size={16} /> : <EyeOff size={16} />}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            {portfolio.type === 'transaction' ? (
+                                                <>
+                                                    <td className="px-6 py-3">{new Date(row.datetime).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
+                                                    <td className="px-6 py-3">
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.side === 'BUY' ? 'bg-green-100 text-green-800' :
+                                                            row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                            {row.side}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
+                                                    <td className="px-6 py-3 text-right">{row.price}</td>
+                                                    <td className="px-6 py-3 text-right">{row.fee}</td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
+                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
+                                                    <td className="px-6 py-3 text-right">{row.cost_basis}</td>
+                                                    <td className="px-6 py-3">{row.as_of}</td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 {allIndicators && (
                     <>
                         <IndicatorCategory
@@ -396,100 +490,6 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         )}
                     </>
                 )}
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold">
-                            {selectedTickers.size > 0 ? 'Performance Comparison (%)' : 'NAV History'}
-                        </h2>
-                        {selectedTickers.size > 0 && (
-                            <span className="text-xs text-gray-500">Normalized to 0% at start</span>
-                        )}
-                    </div>
-                    <NavChart data={navHistory} comparisonData={comparisonData} />
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-6 border-b border-gray-100">
-                        <h2 className="text-lg font-semibold">
-                            {portfolio.type === 'transaction' ? 'Transaction History' : 'Current Positions'}
-                        </h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-medium">
-                                <tr>
-                                    <th className="px-6 py-3 w-10"></th>
-                                    {portfolio.type === 'transaction' ? (
-                                        <>
-                                            <th className="px-6 py-3">Date</th>
-                                            <th className="px-6 py-3">Symbol</th>
-                                            <th className="px-6 py-3">Side</th>
-                                            <th className="px-6 py-3 text-right">Qty</th>
-                                            <th className="px-6 py-3 text-right">Price</th>
-                                            <th className="px-6 py-3 text-right">Fee</th>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <th className="px-6 py-3">Symbol</th>
-                                            <th className="px-6 py-3 text-right">Quantity</th>
-                                            <th className="px-6 py-3 text-right">Cost Basis</th>
-                                            <th className="px-6 py-3">As Of</th>
-                                        </>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {holdings.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                                            No data available
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    holdings.map((row, i) => (
-                                        <tr key={i} className="hover:bg-gray-50">
-                                            <td className="px-6 py-3">
-                                                {row.symbol && row.symbol !== 'CASH' && (
-                                                    <button
-                                                        onClick={() => toggleTicker(row.symbol)}
-                                                        className={`p-1 rounded hover:bg-gray-200 ${selectedTickers.has(row.symbol) ? 'text-blue-600' : 'text-gray-400'}`}
-                                                        title="Toggle on Chart"
-                                                    >
-                                                        {selectedTickers.has(row.symbol) ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                    </button>
-                                                )}
-                                            </td>
-                                            {portfolio.type === 'transaction' ? (
-                                                <>
-                                                    <td className="px-6 py-3">{new Date(row.datetime).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
-                                                    <td className="px-6 py-3">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.side === 'BUY' ? 'bg-green-100 text-green-800' :
-                                                            row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                                                            }`}>
-                                                            {row.side}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
-                                                    <td className="px-6 py-3 text-right">{row.price}</td>
-                                                    <td className="px-6 py-3 text-right">{row.fee}</td>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
-                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
-                                                    <td className="px-6 py-3 text-right">{row.cost_basis}</td>
-                                                    <td className="px-6 py-3">{row.as_of}</td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
 
             <AddTransactionModal
