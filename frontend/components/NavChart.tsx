@@ -187,6 +187,47 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
         return `$${val.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
     };
 
+    const maxDrawdown = useMemo(() => {
+        if (filteredData.length === 0 || isComparisonMode) return null;
+
+        let peak = filteredData[0].value;
+        let peakDate = filteredData[0].date;
+        let maxDD = 0;
+        let maxDDStart = filteredData[0].date;
+        let maxDDEnd = filteredData[0].date;
+        let maxDDPeakValue = filteredData[0].value;
+        let maxDDTroughValue = filteredData[0].value;
+
+        for (let i = 1; i < filteredData.length; i++) {
+            const current = filteredData[i].value;
+            const currentDate = filteredData[i].date;
+
+            if (current > peak) {
+                peak = current;
+                peakDate = currentDate;
+            }
+
+            const drawdown = (current - peak) / peak;
+            if (drawdown < maxDD) {
+                maxDD = drawdown;
+                maxDDStart = peakDate;
+                maxDDEnd = currentDate;
+                maxDDPeakValue = peak;
+                maxDDTroughValue = current;
+            }
+        }
+
+        if (maxDD >= 0) return null;
+
+        return {
+            startDate: maxDDStart,
+            endDate: maxDDEnd,
+            drawdown: maxDD,
+            peakValue: maxDDPeakValue,
+            troughValue: maxDDTroughValue
+        };
+    }, [filteredData, isComparisonMode]);
+
     const selectionInfo = useMemo(() => {
         if (!refAreaLeft || !refAreaRight) return null;
 
@@ -406,6 +447,25 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
                     {refAreaLeft && refAreaRight ? (
                         <ReferenceArea x1={refAreaLeft} x2={refAreaRight} strokeOpacity={0.3} fill="#2563eb" fillOpacity={0.1} />
                     ) : null}
+
+                    {maxDrawdown && (
+                        <>
+                            <ReferenceArea
+                                x1={maxDrawdown.startDate}
+                                x2={maxDrawdown.endDate}
+                                strokeOpacity={0.3}
+                                fill="#ef4444"
+                                fillOpacity={0.05}
+                                label={{
+                                    value: `Max DD: ${(maxDrawdown.drawdown * 100).toFixed(2)}%`,
+                                    position: 'top',
+                                    fill: '#ef4444',
+                                    fontSize: 12,
+                                    fontWeight: 'bold'
+                                }}
+                            />
+                        </>
+                    )}
                 </LineChart>
             </ResponsiveContainer>
             </div>
