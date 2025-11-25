@@ -9,6 +9,7 @@ from . import ratios as ratios_module
 from . import allocation as allocation_module
 from . import trading as trading_module
 from . import tail_risk as tail_risk_module
+from . import correlation_beta
 
 def calculate_basic_portfolio_indicators(nav: pd.Series) -> Dict[str, float]:
     """Calculate 5 basic portfolio indicators
@@ -54,9 +55,10 @@ def calculate_all_portfolio_indicators(
     prices: Optional[Dict[str, float]] = None,
     price_history: Optional[pd.DataFrame] = None,
     weights: Optional[Dict[str, float]] = None,
-    sector_map: Optional[Dict[str, str]] = None
+    sector_map: Optional[Dict[str, str]] = None,
+    industry_map: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
-    """Calculate all portfolio indicators (approximately 79 indicators)
+    """Calculate all portfolio indicators (approximately 87 indicators)
 
     Args:
         nav: NAV time series
@@ -66,6 +68,7 @@ def calculate_all_portfolio_indicators(
         price_history: Price history DataFrame with symbols as columns
         weights: Portfolio weights {symbol: weight}
         sector_map: Sector mapping {symbol: sector}
+        industry_map: Industry mapping {symbol: industry}
 
     Returns:
         Dict with all indicators organized by category
@@ -161,6 +164,10 @@ def calculate_all_portfolio_indicators(
             sector_alloc = allocation_module.calculate_sector_allocation(holdings, prices, sector_map)
             result['allocation']['sector_allocation'] = sector_alloc
 
+        if industry_map is not None:
+            industry_alloc = allocation_module.calculate_industry_allocation(holdings, prices, industry_map)
+            result['allocation']['industry_allocation'] = industry_alloc
+
     if price_history is not None and not price_history.empty and weights is not None and len(weights) > 1:
         result['risk_decomposition'] = {}
         result['risk_decomposition']['portfolio_volatility'] = allocation_module.calculate_portfolio_volatility(weights, price_history)
@@ -177,7 +184,39 @@ def calculate_all_portfolio_indicators(
 
     if transactions is not None and not transactions.empty:
         result['trading'] = trading_module.calculate_all_trading_metrics(transactions, nav)
+        result['trading']['turnover_by_asset'] = trading_module.calculate_turnover_rate_by_asset(transactions, nav)
     else:
         result['trading'] = None
 
+    if price_history is not None and not price_history.empty and len(price_history) > 1:
+        result['correlation'] = {}
+        returns_df = price_history.pct_change().dropna()
+        if not returns_df.empty and returns_df.shape[1] > 1:
+            result['correlation']['mean_pairwise'] = correlation_beta.calculate_mean_pairwise_correlation(returns_df)
+            max_corr, min_corr = correlation_beta.calculate_max_min_correlation(returns_df)
+            result['correlation']['max_pairwise'] = max_corr
+            result['correlation']['min_pairwise'] = min_corr
+
     return result
+
+
+def calculate_benchmark_comparison(
+    portfolio_returns: pd.Series,
+    benchmark_returns_dict: Dict[str, pd.Series],
+    risk_free_rate: float = 0.0
+) -> Dict[str, Dict[str, float]]:
+    """Calculate portfolio performance relative to multiple benchmarks
+
+    Args:
+        portfolio_returns: Daily returns of portfolio
+        benchmark_returns_dict: Dict of {benchmark_symbol: returns_series}
+        risk_free_rate: Annual risk-free rate
+
+    Returns:
+        Dict of {benchmark_symbol: {metric: value}}
+    """
+    return correlation_beta.calculate_multi_benchmark_metrics(
+        portfolio_returns,
+        benchmark_returns_dict,
+        risk_free_rate
+    )
