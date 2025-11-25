@@ -118,12 +118,21 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
         }
 
         const baseValue = sourceData[0]?.value || 1;
+        const startDate = sourceData[0]?.date;
+        const endDate = sourceData[sourceData.length - 1]?.date;
 
         const comparisonMaps = new Map<string, Map<string, number>>();
         Object.entries(comparisonData).forEach(([sym, history]) => {
+            const filteredHistory = history.filter((h: any) => {
+                const hDate = h.date.substring(0, 10);
+                return hDate >= startDate && hDate <= endDate;
+            });
+
+            if (filteredHistory.length === 0) return;
+
             const dateMap = new Map<string, number>();
-            const symBase = history[0]?.value || 1;
-            history.forEach((h: any) => {
+            const symBase = filteredHistory[0]?.value || 1;
+            filteredHistory.forEach((h: any) => {
                 const normalizedDate = h.date.substring(0, 10);
                 dateMap.set(normalizedDate, ((h.value - symBase) / symBase) * 100);
             });
@@ -132,9 +141,16 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
 
         const benchmarkMaps = new Map<string, Map<string, number>>();
         Object.entries(benchmarkData).forEach(([sym, history]) => {
+            const filteredHistory = history.filter((h: any) => {
+                const hDate = h.date.substring(0, 10);
+                return hDate >= startDate && hDate <= endDate;
+            });
+
+            if (filteredHistory.length === 0) return;
+
             const dateMap = new Map<string, number>();
-            const symBase = history[0]?.value || 1;
-            history.forEach((h: any) => {
+            const symBase = filteredHistory[0]?.value || 1;
+            filteredHistory.forEach((h: any) => {
                 const normalizedDate = h.date.substring(0, 10);
                 dateMap.set(normalizedDate, ((h.value - symBase) / symBase) * 100);
             });
