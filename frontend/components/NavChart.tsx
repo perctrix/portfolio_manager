@@ -15,12 +15,20 @@ interface ChartPoint {
     [key: string]: number | string | undefined;
 }
 
+type TimeRange = '6M' | '1Y' | '2Y' | '3Y' | '5Y' | 'ALL' | 'CUSTOM';
+
+const MIN_DATE = '2008-01-01';
+
 export function NavChart({ data, comparisonData = {} }: NavChartProps) {
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const rafRef = useRef<number | null>(null);
     const pendingRightRef = useRef<string | null>(null);
+
+    const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+    const [customStartDate, setCustomStartDate] = useState<string>('');
+    const [customEndDate, setCustomEndDate] = useState<string>('');
 
     if (!data || data.length === 0) {
         return (
@@ -32,11 +40,49 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
 
     const isComparisonMode = Object.keys(comparisonData).length > 0;
 
+    const filteredData = useMemo(() => {
+        if (!data || data.length === 0) return [];
+        if (timeRange === 'ALL') return data;
+
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        let startDate: Date;
+
+        if (timeRange === 'CUSTOM') {
+            if (!customStartDate || !customEndDate) return data;
+            startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
+
+            return data.filter(d => {
+                const date = new Date(d.date);
+                return date >= startDate && date <= endDate;
+            });
+        }
+
+        const monthsMap: Record<string, number> = {
+            '6M': 6,
+            '1Y': 12,
+            '2Y': 24,
+            '3Y': 36,
+            '5Y': 60
+        };
+
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - monthsMap[timeRange]);
+        startDate.setHours(0, 0, 0, 0);
+
+        return data.filter(d => {
+            const date = new Date(d.date);
+            return date >= startDate && date <= today;
+        });
+    }, [data, timeRange, customStartDate, customEndDate]);
+
     const sampledData = useMemo(() => {
-        if (data.length <= 300) return data;
-        const step = Math.ceil(data.length / 300);
-        return data.filter((_, idx) => idx % step === 0 || idx === data.length - 1);
-    }, [data]);
+        if (filteredData.length <= 300) return filteredData;
+        const step = Math.ceil(filteredData.length / 300);
+        return filteredData.filter((_, idx) => idx % step === 0 || idx === filteredData.length - 1);
+    }, [filteredData]);
 
     const handleMouseMove = useCallback((e: any) => {
         if (!isDragging || !e || !e.activeLabel) return;
@@ -99,19 +145,19 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
     const selectionInfo = useMemo(() => {
         if (!refAreaLeft || !refAreaRight) return null;
 
-        const leftIndex = data.findIndex(d => d.date.substring(0, 10) === refAreaLeft.substring(0, 10));
-        const rightIndex = data.findIndex(d => d.date.substring(0, 10) === refAreaRight.substring(0, 10));
+        const leftIndex = filteredData.findIndex(d => d.date.substring(0, 10) === refAreaLeft.substring(0, 10));
+        const rightIndex = filteredData.findIndex(d => d.date.substring(0, 10) === refAreaRight.substring(0, 10));
 
         if (leftIndex < 0 || rightIndex < 0) return null;
 
-        const start = data[Math.min(leftIndex, rightIndex)];
-        const end = data[Math.max(leftIndex, rightIndex)];
+        const start = filteredData[Math.min(leftIndex, rightIndex)];
+        const end = filteredData[Math.max(leftIndex, rightIndex)];
 
         const startVal = isComparisonMode
-            ? ((start.value - (data[0]?.value || 1)) / (data[0]?.value || 1)) * 100
+            ? ((start.value - (filteredData[0]?.value || 1)) / (filteredData[0]?.value || 1)) * 100
             : start.value;
         const endVal = isComparisonMode
-            ? ((end.value - (data[0]?.value || 1)) / (data[0]?.value || 1)) * 100
+            ? ((end.value - (filteredData[0]?.value || 1)) / (filteredData[0]?.value || 1)) * 100
             : end.value;
 
         const change = endVal - startVal;
@@ -123,27 +169,111 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
             change,
             pctChange: isComparisonMode ? change : pctChange
         };
-    }, [refAreaLeft, refAreaRight, data, isComparisonMode]);
+    }, [refAreaLeft, refAreaRight, filteredData, isComparisonMode]);
+
+    const timeRanges: TimeRange[] = ['6M', '1Y', '2Y', '3Y', '5Y', 'ALL', 'CUSTOM'];
+
+    const handleTimeRangeChange = (range: TimeRange) => {
+        setTimeRange(range);
+        if (range !== 'CUSTOM') {
+            setCustomStartDate('');
+            setCustomEndDate('');
+        }
+    };
+
+    const handleCustomDateApply = () => {
+        if (customStartDate && customEndDate) {
+            const start = new Date(customStartDate);
+            const end = new Date(customEndDate);
+            const minAllowed = new Date(MIN_DATE);
+
+            if (start < minAllowed) {
+                alert(`Start date cannot be earlier than ${MIN_DATE}`);
+                return;
+            }
+
+            if (start >= end) {
+                alert('End date must be after start date');
+                return;
+            }
+
+            setTimeRange('CUSTOM');
+        }
+    };
+
+    const getTodayString = () => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    };
 
     return (
-        <div className="h-96 w-full relative select-none">
-            {selectionInfo && (
-                <div className="absolute top-2 right-16 z-10 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
-                    <div className="font-medium text-gray-500 mb-1">
-                        {new Date(selectionInfo.startDate).toLocaleDateString()} - {new Date(selectionInfo.endDate).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className={`text-lg font-bold ${selectionInfo.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {selectionInfo.change >= 0 ? '+' : ''}{formatValue(selectionInfo.change)}
-                        </span>
-                        {!isComparisonMode && (
-                            <span className={`text-xs ${selectionInfo.pctChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                ({selectionInfo.pctChange >= 0 ? '+' : ''}{selectionInfo.pctChange.toFixed(2)}%)
-                            </span>
-                        )}
-                    </div>
+        <div className="w-full space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex gap-2">
+                    {timeRanges.map((range) => (
+                        <button
+                            key={range}
+                            onClick={() => handleTimeRangeChange(range)}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                                timeRange === range
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            {range}
+                        </button>
+                    ))}
                 </div>
-            )}
+
+                {timeRange === 'CUSTOM' && (
+                    <div className="flex items-center gap-2 ml-4">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            min={MIN_DATE}
+                            max={getTodayString()}
+                            className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            min={customStartDate || MIN_DATE}
+                            max={getTodayString()}
+                            className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            onClick={handleCustomDateApply}
+                            disabled={!customStartDate || !customEndDate}
+                            className="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Apply
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="h-96 w-full relative select-none">
+                {selectionInfo && (
+                    <div className="absolute top-2 right-16 z-10 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
+                        <div className="font-medium text-gray-500 mb-1">
+                            {new Date(selectionInfo.startDate).toLocaleDateString()} - {new Date(selectionInfo.endDate).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-lg font-bold ${selectionInfo.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {selectionInfo.change >= 0 ? '+' : ''}{formatValue(selectionInfo.change)}
+                            </span>
+                            {!isComparisonMode && (
+                                <span className={`text-xs ${selectionInfo.pctChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    ({selectionInfo.pctChange >= 0 ? '+' : ''}{selectionInfo.pctChange.toFixed(2)}%)
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
 
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -220,6 +350,7 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
                     ) : null}
                 </LineChart>
             </ResponsiveContainer>
+            </div>
         </div>
     );
 }
