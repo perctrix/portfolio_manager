@@ -76,6 +76,27 @@ def calculate_sector_allocation(holdings: Dict[str, float], prices: Dict[str, fl
 
     return sector_weights
 
+
+def calculate_industry_allocation(holdings: Dict[str, float], prices: Dict[str, float], industry_map: Dict[str, str]) -> Dict[str, float]:
+    """Calculate allocation by industry
+
+    Args:
+        holdings: {symbol: quantity}
+        prices: {symbol: price}
+        industry_map: {symbol: industry}
+    """
+    if not holdings or not prices or not industry_map:
+        return {}
+
+    weights = calculate_weights(holdings, prices)
+    industry_weights = {}
+
+    for symbol, weight in weights.items():
+        industry = industry_map.get(symbol, 'Unknown')
+        industry_weights[industry] = industry_weights.get(industry, 0.0) + weight
+
+    return industry_weights
+
 def calculate_max_weight(weights: Dict[str, float]) -> float:
     """Calculate maximum single position weight"""
     if not weights:
