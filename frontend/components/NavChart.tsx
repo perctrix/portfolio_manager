@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface NavChartProps {
     data: { date: string; value: number }[];
     comparisonData?: { [symbol: string]: { date: string; value: number }[] };
+    benchmarkData?: { [symbol: string]: { date: string; value: number }[] };
 }
 
 interface ChartPoint {
@@ -19,7 +20,17 @@ type TimeRange = '6M' | '1Y' | '2Y' | '3Y' | '5Y' | 'ALL' | 'CUSTOM';
 
 const MIN_DATE = '2008-01-01';
 
-export function NavChart({ data, comparisonData = {} }: NavChartProps) {
+const BENCHMARK_COLORS = [
+    '#10b981',
+    '#059669',
+    '#047857',
+    '#065f46',
+    '#6ee7b7',
+    '#34d399',
+    '#14532d',
+];
+
+export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavChartProps) {
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -38,7 +49,7 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
         );
     }
 
-    const isComparisonMode = Object.keys(comparisonData).length > 0;
+    const isComparisonMode = Object.keys(comparisonData).length > 0 || Object.keys(benchmarkData).length > 0;
 
     const filteredData = useMemo(() => {
         if (!data || data.length === 0) return [];
@@ -116,7 +127,18 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
                 const normalizedDate = h.date.substring(0, 10);
                 dateMap.set(normalizedDate, ((h.value - symBase) / symBase) * 100);
             });
-            comparisonMaps.set(sym, dateMap);
+            comparisonMaps.set(`ticker_${sym}`, dateMap);
+        });
+
+        const benchmarkMaps = new Map<string, Map<string, number>>();
+        Object.entries(benchmarkData).forEach(([sym, history]) => {
+            const dateMap = new Map<string, number>();
+            const symBase = history[0]?.value || 1;
+            history.forEach((h: any) => {
+                const normalizedDate = h.date.substring(0, 10);
+                dateMap.set(normalizedDate, ((h.value - symBase) / symBase) * 100);
+            });
+            benchmarkMaps.set(`benchmark_${sym}`, dateMap);
         });
 
         return sourceData.map(d => {
@@ -126,16 +148,23 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
                 normalizedValue: ((d.value - baseValue) / baseValue) * 100
             };
 
-            comparisonMaps.forEach((dateMap, sym) => {
+            comparisonMaps.forEach((dateMap, key) => {
                 const value = dateMap.get(normalizedDate);
                 if (value !== undefined) {
-                    point[sym] = value;
+                    point[key] = value;
+                }
+            });
+
+            benchmarkMaps.forEach((dateMap, key) => {
+                const value = dateMap.get(normalizedDate);
+                if (value !== undefined) {
+                    point[key] = value;
                 }
             });
 
             return point;
         });
-    }, [sampledData, comparisonData, isComparisonMode]);
+    }, [sampledData, comparisonData, benchmarkData, isComparisonMode]);
 
     const formatValue = (val: number): string => {
         if (isComparisonMode) return `${val.toFixed(2)}%`;
@@ -335,12 +364,25 @@ export function NavChart({ data, comparisonData = {} }: NavChartProps) {
 
                     {Object.keys(comparisonData).map((sym, idx) => (
                         <Line
-                            key={sym}
+                            key={`ticker_${sym}`}
                             type="monotone"
-                            dataKey={sym}
+                            dataKey={`ticker_${sym}`}
                             name={sym}
                             stroke={`hsl(${(idx * 137.5) % 360}, 70%, 50%)`}
                             strokeWidth={2}
+                            dot={false}
+                        />
+                    ))}
+
+                    {Object.keys(benchmarkData).map((sym, idx) => (
+                        <Line
+                            key={`benchmark_${sym}`}
+                            type="monotone"
+                            dataKey={`benchmark_${sym}`}
+                            name={sym}
+                            stroke={BENCHMARK_COLORS[idx % BENCHMARK_COLORS.length]}
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
                             dot={false}
                         />
                     ))}

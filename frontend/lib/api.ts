@@ -89,3 +89,28 @@ export async function calculateBasicIndicators(portfolio: Portfolio, data: any[]
     }
     return safeJsonParse(response);
 }
+
+export interface Benchmark {
+    symbol: string;
+    name: string;
+    region: string;
+    category: string;
+    description: string;
+}
+
+export async function getBenchmarkList(): Promise<Benchmark[]> {
+    const response = await fetch(`${API_BASE_URL}/benchmarks/list`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch benchmark list');
+    }
+    const data = await safeJsonParse(response);
+    return data.benchmarks;
+}
+
+export async function getBenchmarkHistory(symbol: string): Promise<Array<{date: string, value: number}>> {
+    const response = await fetch(`${API_BASE_URL}/benchmarks/${encodeURIComponent(symbol)}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch benchmark history');
+    }
+    return safeJsonParse(response);
+}

@@ -1,0 +1,62 @@
+{
+  "comment": "Market benchmark indices for portfolio comparison",
+  "last_updated": "2025-11-24",
+  "benchmarks": [
+    {
+      "symbol": "^GSPC",
+      "name": "S&P 500",
+      "region": "US",
+      "category": "us_indices",
+      "description": "Large-cap US equity index"
+    },
+    {
+      "symbol": "^DJI",
+      "name": "Dow Jones",
+      "region": "US",
+      "category": "us_indices",
+      "description": "30 large US companies"
+    },
+    {
+      "symbol": "^IXIC",
+      "name": "NASDAQ",
+      "region": "US",
+      "category": "us_indices",
+      "description": "Tech-heavy US index"
+    },
+    {
+      "symbol": "^RUT",
+      "name": "Russell 2000",
+      "region": "US",
+      "category": "us_indices",
+      "description": "Small-cap US equity index"
+    },
+    {
+      "symbol": "^GDAXI",
+      "name": "DAX",
+      "region": "Europe",
+      "category": "european_indices",
+      "description": "German stock index"
+    },
+    {
+      "symbol": "^FTSE",
+      "name": "FTSE 100",
+      "region": "Europe",
+      "category": "european_indices",
+      "description": "UK stock index"
+    },
+    {
+      "symbol": "^HSI",
+      "name": "Hang Seng",
+      "region": "Asia",
+      "category": "asian_indices",
+      "description": "Hong Kong stock index"
+    },
+    {
+      "symbol": "000001.SS",
+      "name": "Shanghai Composite",
+      "region": "Asia",
+      "category": "asian_indices",
+      "description": "Chinese stock index"
+    }
+  ]
+}

@@ -3,6 +3,8 @@ from typing import List
 import logging
 import re
 import threading
+import json
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
@@ -204,3 +206,55 @@ def validate_ticker(request: TickerValidateRequest, req: Request):
     else:
         logger.info(f"Ticker {symbol} validation failed")
         return {"valid": False, "info": None, "message": f"Ticker '{symbol}' not found"}
+
+@router.get("/benchmarks/list")
+def get_benchmarks():
+    """
+    Get list of available benchmark indices.
+
+    Returns:
+        List of benchmark configurations with symbol, name, region, category, description
+    """
+    try:
+        benchmarks_file = os.path.join(
+            os.path.dirname(__file__), '..', '..', 'data', 'benchmarks.json'
+        )
+        with open(benchmarks_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {"benchmarks": data.get("benchmarks", [])}
+    except Exception as e:
+        logger.error(f"Failed to load benchmarks: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load benchmarks")
+
+@router.get("/benchmarks/{symbol}/history")
+def get_benchmark_history(symbol: str):
+    """
+    Get historical price data for a benchmark index.
+    Reuses existing price history mechanism.
+
+    This is functionally identical to /prices/{symbol}/history but semantically separate.
+    """
+    try:
+        benchmarks_file = os.path.join(
+            os.path.dirname(__file__), '..', '..', 'data', 'benchmarks.json'
+        )
+        with open(benchmarks_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            valid_symbols = [b['symbol'] for b in data.get('benchmarks', [])]
+            if symbol not in valid_symbols:
+                raise HTTPException(status_code=400, detail=f"{symbol} is not a valid benchmark")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to validate benchmark: {e}")
+        raise HTTPException(status_code=500, detail="Failed to validate benchmark")
+
+    df = prices.get_price_history(symbol)
+    if df.empty:
+        prices.update_price_cache(symbol)
+        df = prices.get_price_history(symbol)
+
+    if df.empty:
+        raise HTTPException(status_code=404, detail=f"No data found for {symbol}")
+
+    return [{"date": d.strftime("%Y-%m-%d"), "value": v} for d, v in df['Close'].items()]

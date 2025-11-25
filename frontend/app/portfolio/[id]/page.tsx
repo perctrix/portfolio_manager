@@ -9,6 +9,7 @@ import { MetricsCard } from '@/components/MetricsCard';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
+import { BenchmarkPanel } from '@/components/BenchmarkPanel';
 import IndicatorCategory from '@/components/IndicatorCategory';
 import IndicatorGrid from '@/components/IndicatorGrid';
 import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
@@ -16,7 +17,7 @@ import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
-import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice } from '@/lib/api';
+import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory } from '@/lib/api';
 import { formatPercentage, formatNumber, formatDays, getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +32,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
     const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
     const [comparisonData, setComparisonData] = useState<{ [key: string]: any[] }>({});
+    const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(new Set());
+    const [benchmarkData, setBenchmarkData] = useState<{ [key: string]: any[] }>({});
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
 
@@ -165,6 +168,32 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
+    async function toggleBenchmark(symbol: string) {
+        const newSelected = new Set(selectedBenchmarks);
+        if (newSelected.has(symbol)) {
+            newSelected.delete(symbol);
+            const newBenchData = { ...benchmarkData };
+            delete newBenchData[symbol];
+            setBenchmarkData(newBenchData);
+            setSelectedBenchmarks(newSelected);
+        } else {
+            newSelected.add(symbol);
+            setSelectedBenchmarks(newSelected);
+
+            if (!benchmarkData[symbol]) {
+                try {
+                    const history = await getBenchmarkHistory(symbol);
+                    setBenchmarkData(prev => ({ ...prev, [symbol]: history }));
+                } catch (e) {
+                    console.error(`Failed to fetch benchmark ${symbol}:`, e);
+                    newSelected.delete(symbol);
+                    setSelectedBenchmarks(new Set(newSelected));
+                    alert(`Unable to load benchmark data for ${symbol}. Please try again.`);
+                }
+            }
+        }
+    }
+
     function toggleSection(section: string) {
         const newExpanded = new Set(expandedSections);
         if (newExpanded.has(section)) {
@@ -255,14 +284,19 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-semibold">
-                            {selectedTickers.size > 0 ? 'Performance Comparison (%)' : 'NAV History'}
+                            {selectedTickers.size > 0 || selectedBenchmarks.size > 0 ? 'Performance Comparison (%)' : 'NAV History'}
                         </h2>
-                        {selectedTickers.size > 0 && (
+                        {(selectedTickers.size > 0 || selectedBenchmarks.size > 0) && (
                             <span className="text-xs text-gray-500">Normalized to 0% at start</span>
                         )}
                     </div>
-                    <NavChart data={navHistory} comparisonData={comparisonData} />
+                    <NavChart data={navHistory} comparisonData={comparisonData} benchmarkData={benchmarkData} />
                 </div>
+
+                <BenchmarkPanel
+                    selectedBenchmarks={selectedBenchmarks}
+                    onToggleBenchmark={toggleBenchmark}
+                />
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6 border-b border-gray-100">
