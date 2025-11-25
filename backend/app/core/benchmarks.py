@@ -47,28 +47,28 @@ class BenchmarkLoader:
         Returns:
             pd.Series with date index and close prices
         """
-        price_file = self.data_dir / "prices" / f"{symbol}.csv"
-
-        if not price_file.exists():
-            return pd.Series(dtype=float)
+        from app.core import prices
 
         try:
-            df = pd.read_csv(price_file, index_col=0, parse_dates=True)
+            df = prices.get_price_history(symbol)
+
+            if df.empty:
+                return pd.Series(dtype=float)
 
             if 'Close' in df.columns:
-                prices = df['Close']
+                prices_series = df['Close']
             elif 'Adj Close' in df.columns:
-                prices = df['Adj Close']
+                prices_series = df['Adj Close']
             else:
                 return pd.Series(dtype=float)
 
             if start_date is not None:
-                prices = prices[prices.index >= start_date]
+                prices_series = prices_series[prices_series.index >= start_date]
 
             if end_date is not None:
-                prices = prices[prices.index <= end_date]
+                prices_series = prices_series[prices_series.index <= end_date]
 
-            return prices.dropna()
+            return prices_series.dropna()
 
         except Exception as e:
             print(f"Error loading benchmark {symbol}: {e}")
