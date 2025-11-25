@@ -102,6 +102,73 @@ def calculate_distance_from_52week_high(close: pd.Series, window: int = 252) -> 
     distance = (current_price - high_52w) / high_52w
     return float(distance)
 
+
+def calculate_n_day_high(close: pd.Series, window: int) -> float:
+    """Calculate N-day high price
+
+    Args:
+        close: Price series
+        window: Number of days to look back
+
+    Returns:
+        Highest price in the window
+    """
+    if close.empty:
+        return 0.0
+
+    if len(close) < window:
+        return float(close.max())
+
+    return float(close.tail(window).max())
+
+
+def calculate_n_day_low(close: pd.Series, window: int) -> float:
+    """Calculate N-day low price
+
+    Args:
+        close: Price series
+        window: Number of days to look back
+
+    Returns:
+        Lowest price in the window
+    """
+    if close.empty:
+        return 0.0
+
+    if len(close) < window:
+        return float(close.min())
+
+    return float(close.tail(window).min())
+
+
+def calculate_position_in_range(close: pd.Series, window: int) -> float:
+    """Calculate current price position in N-day range
+
+    Returns value between 0 and 1:
+    - 0: at the low
+    - 1: at the high
+    - 0.5: in the middle
+
+    Args:
+        close: Price series
+        window: Number of days to look back
+
+    Returns:
+        Position ratio (0 to 1)
+    """
+    if close.empty:
+        return 0.0
+
+    current_price = close.iloc[-1]
+    high = calculate_n_day_high(close, window)
+    low = calculate_n_day_low(close, window)
+
+    if high == low:
+        return 0.5
+
+    position = (current_price - low) / (high - low)
+    return float(position)
+
 def calculate_connors_rsi(data: pd.DataFrame, rsi_period: int = 3, streak_period: int = 2, rank_period: int = 100) -> pd.Series:
     """Calculate Connors RSI"""
     price_rsi = pd.Series(ta.RSI(data['Close'].values, timeperiod=rsi_period), index=data.index)
