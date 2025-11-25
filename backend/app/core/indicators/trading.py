@@ -43,6 +43,50 @@ def calculate_turnover_rate(transactions: pd.DataFrame, nav_history: pd.Series) 
 
     return float(turnover)
 
+
+def calculate_turnover_rate_by_asset(transactions: pd.DataFrame, nav_history: pd.Series) -> Dict[str, float]:
+    """Calculate annualized turnover rate for each asset
+
+    Args:
+        transactions: DataFrame with columns: datetime, symbol, side, quantity, price, fee
+        nav_history: NAV time series
+
+    Returns:
+        Dict of {symbol: turnover_rate}
+    """
+    if transactions is None or transactions.empty or nav_history.empty:
+        return {}
+
+    trade_txns = transactions[transactions['side'].str.upper().isin(['BUY', 'SELL'])]
+
+    if trade_txns.empty:
+        return {}
+
+    avg_nav = nav_history.mean()
+    if avg_nav == 0:
+        return {}
+
+    days = (nav_history.index[-1] - nav_history.index[0]).days
+    if days <= 0:
+        return {}
+
+    annual_factor = 365.0 / days
+
+    turnover_by_asset = {}
+    for symbol in trade_txns['symbol'].unique():
+        symbol_txns = trade_txns[trade_txns['symbol'] == symbol]
+
+        trading_volume = 0.0
+        for _, txn in symbol_txns.iterrows():
+            qty = float(txn['quantity'])
+            price = float(txn['price'])
+            trading_volume += abs(qty * price)
+
+        turnover = (trading_volume / avg_nav) * annual_factor
+        turnover_by_asset[symbol] = float(turnover)
+
+    return turnover_by_asset
+
 def calculate_avg_holding_period(transactions: pd.DataFrame) -> float:
     """Calculate average holding period in days"""
     trades_df = calculate_trade_pnl(transactions)
