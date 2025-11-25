@@ -388,3 +388,46 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
     except Exception as e:
         logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scheduler/status")
+def get_scheduler_status():
+    """Get benchmark scheduler status and next run times"""
+    from app.core.scheduler import get_scheduler
+
+    try:
+        scheduler = get_scheduler()
+        is_running = scheduler.scheduler.running
+
+        next_runs = []
+        if is_running:
+            next_runs = scheduler.get_next_run_times()
+
+        return {
+            "status": "running" if is_running else "stopped",
+            "next_scheduled_updates": next_runs,
+            "update_times": scheduler.update_times
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduler/update-now")
+def trigger_benchmark_update():
+    """Manually trigger benchmark data update"""
+    from app.core.scheduler import get_scheduler
+
+    try:
+        scheduler = get_scheduler()
+        scheduler.update_all_benchmarks()
+
+        return {
+            "status": "success",
+            "message": "Benchmark update triggered successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to trigger benchmark update: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
