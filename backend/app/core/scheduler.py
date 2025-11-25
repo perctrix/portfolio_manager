@@ -150,5 +150,6 @@ def start_scheduler() -> BenchmarkScheduler:
 def stop_scheduler() -> None:
     """Stop the benchmark scheduler"""
     global scheduler_instance
-    if scheduler_instance is not None:
-        scheduler_instance.stop()
+    with _scheduler_lock:
+        if scheduler_instance is not None:
+            scheduler_instance.stop()
