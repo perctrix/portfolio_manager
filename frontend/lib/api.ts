@@ -114,3 +114,35 @@ export async function getBenchmarkHistory(symbol: string): Promise<Array<{date: 
     }
     return safeJsonParse(response);
 }
+
+export interface BenchmarkMetrics {
+    beta: number;
+    alpha: number;
+    r_squared: number;
+    correlation: number;
+    tracking_error: number;
+    information_ratio: number;
+}
+
+export interface BenchmarkComparison {
+    [symbol: string]: {
+        name: string;
+        metrics: BenchmarkMetrics;
+    };
+}
+
+export async function calculateBenchmarkComparison(portfolio: Portfolio, data: any[]): Promise<BenchmarkComparison> {
+    const response = await fetch(`${API_BASE_URL}/calculate/benchmark-comparison`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ portfolio, data }),
+    });
+    if (!response.ok) {
+        const error = await safeJsonParse(response);
+        throw new Error(error.detail || 'Failed to calculate benchmark comparison');
+    }
+    const result = await safeJsonParse(response);
+    return result.benchmarks;
+}
