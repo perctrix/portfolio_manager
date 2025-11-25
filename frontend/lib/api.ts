@@ -1,4 +1,5 @@
 import { Portfolio } from '@/types';
+import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -57,4 +58,34 @@ export async function updatePrice(symbol: string): Promise<void> {
         const error = await safeJsonParse(response);
         throw new Error(error.detail || 'Failed to update price');
     }
+}
+
+export async function calculateAllIndicators(portfolio: Portfolio, data: any[]): Promise<AllIndicators> {
+    const response = await fetch(`${API_BASE_URL}/calculate/indicators/all`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ portfolio, data }),
+    });
+    if (!response.ok) {
+        const error = await safeJsonParse(response);
+        throw new Error(error.detail || 'Failed to calculate all indicators');
+    }
+    return safeJsonParse(response);
+}
+
+export async function calculateBasicIndicators(portfolio: Portfolio, data: any[]): Promise<BasicIndicators> {
+    const response = await fetch(`${API_BASE_URL}/calculate/indicators/basic`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ portfolio, data }),
+    });
+    if (!response.ok) {
+        const error = await safeJsonParse(response);
+        throw new Error(error.detail || 'Failed to calculate basic indicators');
+    }
+    return safeJsonParse(response);
 }

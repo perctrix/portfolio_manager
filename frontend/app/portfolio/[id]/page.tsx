@@ -4,13 +4,20 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Portfolio } from '@/types';
+import { AllIndicators } from '@/types/indicators';
 import { MetricsCard } from '@/components/MetricsCard';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
+import IndicatorCategory from '@/components/IndicatorCategory';
+import IndicatorGrid from '@/components/IndicatorGrid';
+import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
+import AllocationBreakdown from '@/components/AllocationBreakdown';
+import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
-import { calculateNav, calculateIndicators, getPriceHistory, updatePrice } from '@/lib/api';
+import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice } from '@/lib/api';
+import { formatPercentage, formatNumber, formatDays, getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -24,6 +31,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
     const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
     const [comparisonData, setComparisonData] = useState<{ [key: string]: any[] }>({});
+    const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
 
     useEffect(() => {
         loadData();
@@ -55,9 +64,13 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 const ind = await calculateIndicators(portfolioData.meta, portfolioData.data);
                 setIndicators(ind);
+
+                const allInd = await calculateAllIndicators(portfolioData.meta, portfolioData.data);
+                setAllIndicators(allInd);
             } else {
                 setNavHistory([]);
                 setIndicators({});
+                setAllIndicators(null);
             }
 
         } catch (error) {
@@ -152,6 +165,16 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
+    function toggleSection(section: string) {
+        const newExpanded = new Set(expandedSections);
+        if (newExpanded.has(section)) {
+            newExpanded.delete(section);
+        } else {
+            newExpanded.add(section);
+        }
+        setExpandedSections(newExpanded);
+    }
+
     if (loading) return <div className="p-8 text-center">Loading...</div>;
     if (!portfolio) return <div className="p-8 text-center text-red-500">Portfolio not found</div>;
 
@@ -228,6 +251,151 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     <MetricsCard title="VaR (95%)" value={`${(indicators.var_95 * 100 || 0).toFixed(2)}%`} />
                     <MetricsCard title="HHI (Concentration)" value={indicators.hhi || 0} />
                 </div>
+
+                {allIndicators && (
+                    <>
+                        <IndicatorCategory
+                            title="Returns"
+                            description="Return metrics including CAGR, YTD, MTD, and P&L"
+                            isOpen={expandedSections.has('returns')}
+                            onToggle={() => toggleSection('returns')}
+                        >
+                            <IndicatorGrid
+                                indicators={[
+                                    { label: 'Total Return', value: allIndicators.returns.total_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.total_return) },
+                                    { label: 'CAGR', value: allIndicators.returns.cagr, format: 'percentage' },
+                                    { label: 'YTD Return', value: allIndicators.returns.ytd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.ytd_return) },
+                                    { label: 'MTD Return', value: allIndicators.returns.mtd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.mtd_return) },
+                                    { label: 'Realized P&L', value: allIndicators.returns.realized_pnl, format: 'currency' },
+                                    { label: 'Unrealized P&L', value: allIndicators.returns.unrealized_pnl, format: 'currency' },
+                                    { label: 'Total P&L', value: allIndicators.returns.total_pnl, format: 'currency' },
+                                    { label: 'TWR', value: allIndicators.returns.twr, format: 'percentage' },
+                                    { label: 'IRR', value: allIndicators.returns.irr, format: 'percentage' },
+                                ]}
+                                columns={3}
+                            />
+                            {allIndicators.returns.monthly_returns && (
+                                <MonthlyReturnsTable monthlyReturns={allIndicators.returns.monthly_returns} />
+                            )}
+                        </IndicatorCategory>
+
+                        <IndicatorCategory
+                            title="Risk & Volatility"
+                            description="Volatility measures and risk metrics"
+                            isOpen={expandedSections.has('risk')}
+                            onToggle={() => toggleSection('risk')}
+                        >
+                            <IndicatorGrid
+                                indicators={[
+                                    { label: 'Daily Volatility', value: allIndicators.risk.daily_volatility, format: 'percentage' },
+                                    { label: 'Annualized Volatility', value: allIndicators.risk.annualized_volatility, format: 'percentage' },
+                                    { label: 'Rolling Volatility (30d)', value: allIndicators.risk.rolling_volatility_30d, format: 'percentage' },
+                                    { label: 'Upside Volatility', value: allIndicators.risk.upside_volatility, format: 'percentage' },
+                                    { label: 'Downside Volatility', value: allIndicators.risk.downside_volatility, format: 'percentage' },
+                                    { label: 'Semivariance', value: allIndicators.risk.semivariance, format: 'number' },
+                                ]}
+                                columns={3}
+                            />
+                        </IndicatorCategory>
+
+                        <IndicatorCategory
+                            title="Drawdown"
+                            description="Drawdown analysis and recovery metrics"
+                            isOpen={expandedSections.has('drawdown')}
+                            onToggle={() => toggleSection('drawdown')}
+                        >
+                            <IndicatorGrid
+                                indicators={[
+                                    { label: 'Max Drawdown', value: allIndicators.drawdown.max_drawdown, format: 'percentage', trend: 'down' },
+                                    { label: 'Max Drawdown Duration', value: allIndicators.drawdown.max_drawdown_duration || 0, format: 'days' },
+                                    { label: 'Average Drawdown', value: allIndicators.drawdown.avg_drawdown, format: 'percentage' },
+                                    { label: 'Recovery Days', value: allIndicators.drawdown.recovery_days || 0, format: 'days' },
+                                    { label: 'Consecutive Loss Days', value: allIndicators.drawdown.consecutive_loss_days, format: 'days' },
+                                    { label: 'Consecutive Gain Days', value: allIndicators.drawdown.consecutive_gain_days, format: 'days' },
+                                ]}
+                                columns={3}
+                            />
+                        </IndicatorCategory>
+
+                        <IndicatorCategory
+                            title="Risk-Adjusted Ratios"
+                            description="Performance adjusted for risk"
+                            isOpen={expandedSections.has('ratios')}
+                            onToggle={() => toggleSection('ratios')}
+                        >
+                            <IndicatorGrid
+                                indicators={[
+                                    { label: 'Sharpe Ratio', value: allIndicators.risk_adjusted_ratios.sharpe, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sharpe) },
+                                    { label: 'Rolling Sharpe (30d)', value: allIndicators.risk_adjusted_ratios.rolling_sharpe_30d, format: 'number' },
+                                    { label: 'Sortino Ratio', value: allIndicators.risk_adjusted_ratios.sortino, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sortino) },
+                                    { label: 'Calmar Ratio', value: allIndicators.risk_adjusted_ratios.calmar, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.calmar) },
+                                ]}
+                                columns={4}
+                            />
+                        </IndicatorCategory>
+
+                        <IndicatorCategory
+                            title="Tail Risk"
+                            description="Extreme risk measures"
+                            isOpen={expandedSections.has('tail_risk')}
+                            onToggle={() => toggleSection('tail_risk')}
+                        >
+                            <IndicatorGrid
+                                indicators={[
+                                    { label: 'VaR (95%)', value: allIndicators.tail_risk.var_95, format: 'percentage', trend: 'down' },
+                                    { label: 'CVaR (95%)', value: allIndicators.tail_risk.cvar_95, format: 'percentage', trend: 'down' },
+                                    { label: 'Skewness', value: allIndicators.tail_risk.skewness, format: 'number' },
+                                    { label: 'Kurtosis', value: allIndicators.tail_risk.kurtosis, format: 'number' },
+                                ]}
+                                columns={4}
+                            />
+                        </IndicatorCategory>
+
+                        {allIndicators.allocation && (
+                            <IndicatorCategory
+                                title="Allocation"
+                                description="Portfolio composition and concentration"
+                                isOpen={expandedSections.has('allocation')}
+                                onToggle={() => toggleSection('allocation')}
+                            >
+                                <AllocationBreakdown allocation={allIndicators.allocation} />
+                            </IndicatorCategory>
+                        )}
+
+                        {allIndicators.risk_decomposition && (
+                            <IndicatorCategory
+                                title="Risk Decomposition"
+                                description="Risk contribution by asset and sector"
+                                isOpen={expandedSections.has('risk_decomposition')}
+                                onToggle={() => toggleSection('risk_decomposition')}
+                            >
+                                <RiskDecomposition riskDecomp={allIndicators.risk_decomposition} />
+                            </IndicatorCategory>
+                        )}
+
+                        {allIndicators.trading && (
+                            <IndicatorCategory
+                                title="Trading Metrics"
+                                description="Transaction-based performance metrics"
+                                isOpen={expandedSections.has('trading')}
+                                onToggle={() => toggleSection('trading')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: 'Trade Count', value: allIndicators.trading.trade_count, format: 'number' },
+                                        { label: 'Win Rate', value: allIndicators.trading.win_rate, format: 'percentage', trend: getTrendDirection(allIndicators.trading.win_rate) },
+                                        { label: 'Profit/Loss Ratio', value: allIndicators.trading.profit_loss_ratio, format: 'number', trend: getTrendDirection(allIndicators.trading.profit_loss_ratio) },
+                                        { label: 'Turnover Rate', value: allIndicators.trading.turnover_rate, format: 'percentage' },
+                                        { label: 'Avg Holding Period', value: allIndicators.trading.avg_holding_period, format: 'days' },
+                                        { label: 'Consecutive Wins', value: allIndicators.trading.consecutive_winning_trades, format: 'number' },
+                                        { label: 'Consecutive Losses', value: allIndicators.trading.consecutive_losing_trades, format: 'number' },
+                                    ]}
+                                    columns={3}
+                                />
+                            </IndicatorCategory>
+                        )}
+                    </>
+                )}
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
