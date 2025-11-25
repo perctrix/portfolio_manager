@@ -10,6 +10,7 @@ import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
 import { BenchmarkPanel } from '@/components/BenchmarkPanel';
+import { BenchmarkComparisonTable } from '@/components/BenchmarkComparisonTable';
 import IndicatorCategory from '@/components/IndicatorCategory';
 import IndicatorGrid from '@/components/IndicatorGrid';
 import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
@@ -17,7 +18,7 @@ import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
-import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory } from '@/lib/api';
+import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory, calculateBenchmarkComparison, BenchmarkComparison } from '@/lib/api';
 import { formatPercentage, formatNumber, formatDays, getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +35,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [comparisonData, setComparisonData] = useState<{ [key: string]: any[] }>({});
     const [selectedBenchmarks, setSelectedBenchmarks] = useState<Set<string>>(new Set());
     const [benchmarkData, setBenchmarkData] = useState<{ [key: string]: any[] }>({});
+    const [benchmarkComparison, setBenchmarkComparison] = useState<BenchmarkComparison | null>(null);
+    const [loadingBenchmarkComparison, setLoadingBenchmarkComparison] = useState(false);
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
 
@@ -70,16 +73,32 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 const allInd = await calculateAllIndicators(portfolioData.meta, portfolioData.data);
                 setAllIndicators(allInd);
+
+                loadBenchmarkComparison(portfolioData.meta, portfolioData.data);
             } else {
                 setNavHistory([]);
                 setIndicators({});
                 setAllIndicators(null);
+                setBenchmarkComparison(null);
             }
 
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function loadBenchmarkComparison(portfolioMeta: Portfolio, portfolioData: any[]) {
+        try {
+            setLoadingBenchmarkComparison(true);
+            const comparison = await calculateBenchmarkComparison(portfolioMeta, portfolioData);
+            setBenchmarkComparison(comparison);
+        } catch (error) {
+            console.error('Failed to load benchmark comparison:', error);
+            setBenchmarkComparison(null);
+        } finally {
+            setLoadingBenchmarkComparison(false);
         }
     }
 
@@ -297,6 +316,14 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     selectedBenchmarks={selectedBenchmarks}
                     onToggleBenchmark={toggleBenchmark}
                 />
+
+                {loadingBenchmarkComparison ? (
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <p className="text-sm text-gray-400">Loading benchmark comparison...</p>
+                    </div>
+                ) : benchmarkComparison && (
+                    <BenchmarkComparisonTable comparison={benchmarkComparison} />
+                )}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-6 border-b border-gray-100">
