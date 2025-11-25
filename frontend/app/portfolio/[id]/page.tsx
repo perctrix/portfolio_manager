@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Portfolio } from '@/types';
 import { AllIndicators } from '@/types/indicators';
 import { MetricsCard } from '@/components/MetricsCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
+import { LoadingProgress } from '@/components/LoadingProgress';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
@@ -19,7 +21,7 @@ import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
 import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory, calculateBenchmarkComparison, BenchmarkComparison } from '@/lib/api';
-import { formatPercentage, formatNumber, formatDays, getTrendDirection } from '@/utils/formatters';
+import { getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -40,6 +42,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [selectedBetaBenchmark, setSelectedBetaBenchmark] = useState<string>('^GSPC');
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
+    const [loadingStep, setLoadingStep] = useState(0);
+    const totalLoadingSteps = 5;
 
     useEffect(() => {
         loadData();
@@ -48,6 +52,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     async function loadData() {
         try {
             setLoading(true);
+            setLoadingStep(0);
+            
             const portfolioData = getPortfolio(id);
             if (!portfolioData) {
                 throw new Error('Portfolio not found');
@@ -55,12 +61,14 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             setPortfolio(portfolioData.meta);
             setHoldings(portfolioData.data);
+            setLoadingStep(1);
 
             if (portfolioData.data.length > 0) {
                 const symbols = Array.from(new Set(portfolioData.data.map((row: any) => row.symbol).filter((s: string) => s && s !== 'CASH')));
                 for (const symbol of symbols) {
                     await updatePrice(symbol).catch(err => console.warn(`Failed to update price for ${symbol}:`, err));
                 }
+                setLoadingStep(2);
 
                 const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
                 setNavHistory(navResult.nav);
@@ -68,12 +76,15 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 if (navResult.failed_tickers && navResult.failed_tickers.length > 0) {
                     alert(`Warning: The following tickers could not be found:\n${navResult.failed_tickers.join(', ')}\n\nPlease check the symbols and update your portfolio.`);
                 }
+                setLoadingStep(3);
 
                 const ind = await calculateIndicators(portfolioData.meta, portfolioData.data);
                 setIndicators(ind);
+                setLoadingStep(4);
 
                 const allInd = await calculateAllIndicators(portfolioData.meta, portfolioData.data);
                 setAllIndicators(allInd);
+                setLoadingStep(5);
 
                 loadBenchmarkComparison(portfolioData.meta, portfolioData.data);
             } else {
@@ -224,7 +235,84 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         setExpandedSections(newExpanded);
     }
 
-    if (loading) return <div className="p-8 text-center">Loading...</div>;
+    if (loading) {
+        return (
+            <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
+                <div className="max-w-6xl mx-auto space-y-8">
+                    {/* Header skeleton */}
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
+                            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="flex gap-2 mt-2">
+                                <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse"></div>
+                                <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse"></div>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            <div className="w-px bg-gray-300 mx-1"></div>
+                            <div className="h-10 w-32 bg-gray-200 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    {/* First row of metrics cards skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
+                    </div>
+
+                    {/* Second row of metrics cards skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
+                    </div>
+
+                    {/* NAV Chart skeleton with progress bar */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                        <div className="h-96 flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <div className="w-64">
+                                <LoadingProgress 
+                                    currentStep={loadingStep} 
+                                    totalSteps={totalLoadingSteps}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Benchmark Panel skeleton */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4"></div>
+                        <div className="flex gap-2">
+                            <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+                            <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+                            <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    {/* Transaction/Positions table skeleton */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div className="h-10 w-full bg-gray-100 rounded animate-pulse"></div>
+                            <div className="h-10 w-full bg-gray-100 rounded animate-pulse"></div>
+                            <div className="h-10 w-full bg-gray-100 rounded animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        );
+    }
     if (!portfolio) return <div className="p-8 text-center text-red-500">Portfolio not found</div>;
 
     return (
