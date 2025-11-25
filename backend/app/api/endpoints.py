@@ -415,7 +415,7 @@ def get_scheduler_status():
 
 
 @router.post("/scheduler/update-now")
-async def trigger_benchmark_update():
+def trigger_benchmark_update():
     """Manually trigger benchmark data update"""
     from app.core.scheduler import get_scheduler
 
