@@ -9,6 +9,7 @@ from . import ratios as ratios_module
 from . import allocation as allocation_module
 from . import trading as trading_module
 from . import tail_risk as tail_risk_module
+from . import correlation_beta
 
 def calculate_basic_portfolio_indicators(nav: pd.Series) -> Dict[str, float]:
     """Calculate 5 basic portfolio indicators
@@ -191,10 +192,31 @@ def calculate_all_portfolio_indicators(
         result['correlation'] = {}
         returns_df = price_history.pct_change().dropna()
         if not returns_df.empty and returns_df.shape[1] > 1:
-            from . import correlation_beta
             result['correlation']['mean_pairwise'] = correlation_beta.calculate_mean_pairwise_correlation(returns_df)
             max_corr, min_corr = correlation_beta.calculate_max_min_correlation(returns_df)
             result['correlation']['max_pairwise'] = max_corr
             result['correlation']['min_pairwise'] = min_corr
 
     return result
+
+
+def calculate_benchmark_comparison(
+    portfolio_returns: pd.Series,
+    benchmark_returns_dict: Dict[str, pd.Series],
+    risk_free_rate: float = 0.0
+) -> Dict[str, Dict[str, float]]:
+    """Calculate portfolio performance relative to multiple benchmarks
+
+    Args:
+        portfolio_returns: Daily returns of portfolio
+        benchmark_returns_dict: Dict of {benchmark_symbol: returns_series}
+        risk_free_rate: Annual risk-free rate
+
+    Returns:
+        Dict of {benchmark_symbol: {metric: value}}
+    """
+    return correlation_beta.calculate_multi_benchmark_metrics(
+        portfolio_returns,
+        benchmark_returns_dict,
+        risk_free_rate
+    )
