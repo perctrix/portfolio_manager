@@ -2,11 +2,21 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import logging
 from app.core import storage
 from app.core.indicators.technical import calculate_technical_indicators_batch
+from app.core.cache import PriceCacheManager
+from app.core.config import config
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 from data.fetch_data import get_historical_close
+
+logger = logging.getLogger(__name__)
+
+_cache_manager = PriceCacheManager(
+    prices_dir=storage.PRICES_DIR,
+    ttl_hours=config.STOCK_CACHE_TTL_HOURS
+)
 
 def fetch_price_data(symbol: str, start_date: str = '2020-01-01', interval: str = '1d') -> pd.DataFrame:
     """
@@ -37,25 +47,22 @@ def fetch_price_data(symbol: str, start_date: str = '2020-01-01', interval: str 
     return stock
 
 def update_price_cache(symbol: str):
-    """Fetch data and save to CSV"""
+    """Fetch data and save to CSV with metadata update"""
     try:
         df = fetch_price_data(symbol)
-        file_path = os.path.join(storage.PRICES_DIR, f"{symbol}.csv")
-        df.to_csv(file_path)
+        _cache_manager._update_cache(symbol, df)
         return True
     except Exception as e:
-        print(f"Error updating {symbol}: {e}")
+        logger.error(f"Error updating {symbol}: {e}")
         return False
 
 def get_price_history(symbol: str) -> pd.DataFrame:
-    """Load price history from CSV"""
-    file_path = os.path.join(storage.PRICES_DIR, f"{symbol}.csv")
-    if not os.path.exists(file_path):
-        # Try to fetch if not exists
-        if not update_price_cache(symbol):
-            return pd.DataFrame()
+    """Load price history from CSV with automatic cache refresh"""
+    def fetch_func():
+        return fetch_price_data(symbol)
 
-    df = pd.read_csv(file_path, index_col=0, parse_dates=True)
-    if not df.empty and hasattr(df.index, 'normalize'):
-        df.index = df.index.normalize()
-    return df
+    try:
+        return _cache_manager.get_or_refresh(symbol, fetch_func)
+    except Exception as e:
+        logger.error(f"Failed to get price history for {symbol}: {e}")
+        return pd.DataFrame()
