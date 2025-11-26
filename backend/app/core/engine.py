@@ -11,6 +11,7 @@ class PortfolioEngine:
         self.portfolio = portfolio
         self.failed_tickers: list[str] = []
         self.suggested_initial_deposit: float = 0.0
+        self.cash_history: pd.Series = pd.Series()
 
         if self.portfolio.type == PortfolioType.TRANSACTION:
             if data:
@@ -101,6 +102,7 @@ class PortfolioEngine:
             deposit_txns = txns_sorted[txns_sorted['side'].str.upper() == 'DEPOSIT']
             has_initial_deposit = False
             initial_cash = 0.0
+            initial_deposit_indices = set()
 
             if not deposit_txns.empty:
                 # Find first BUY/SELL transaction
@@ -116,10 +118,12 @@ class PortfolioEngine:
                     if not early_deposits.empty:
                         has_initial_deposit = True
                         initial_cash = early_deposits['quantity'].sum()
+                        initial_deposit_indices = set(early_deposits.index)
                 else:
                     # Only DEPOSIT transactions exist, no trades yet
                     has_initial_deposit = True
                     initial_cash = deposit_txns['quantity'].sum()
+                    initial_deposit_indices = set(deposit_txns.index)
 
             if not has_initial_deposit:
                 suggested_amount = self._calculate_suggested_deposit(txns_sorted)
@@ -150,32 +154,40 @@ class PortfolioEngine:
             price_df = price_df[price_df.index.date >= start_date]
             # Forward fill missing prices (holdings don't disappear if price is missing)
             price_df = price_df.ffill()
-            
+
+            # Create complete date range including all transaction dates
+            txn_dates = txns['datetime'].dt.normalize().unique()
+            all_dates = pd.DatetimeIndex(sorted(set(price_df.index.normalize()).union(set(txn_dates))))
+            all_dates = all_dates[all_dates.date >= start_date]
+
+            # Reindex price_df to include all dates, forward fill prices for non-trading days
+            price_df = price_df.reindex(all_dates, method='ffill')
+
             # Initialize state
             current_holdings = {sym: 0.0 for sym in symbols}
             current_cash = initial_cash
-            
+
             nav_history = {}
-            
-            # Iterate through each day in price_df
+
+            # Iterate through each day (including transaction-only days)
             # We need to process transactions that happened on or before this day
             # Optimization: Group txns by date
             txns['date'] = txns['datetime'].dt.date
             txns_by_date = txns.groupby('date')
-            
+
             for date in price_df.index:
                 d = date.date()
                 
                 # Process transactions for this day
                 if d in txns_by_date.groups:
                     day_txns = txns_by_date.get_group(d)
-                    for _, txn in day_txns.iterrows():
+                    for idx, txn in day_txns.iterrows():
                         sym = txn['symbol']
                         qty = float(txn['quantity'])
                         price = float(txn['price'])
                         fee = float(txn['fee']) if not pd.isna(txn['fee']) else 0.0
                         side = txn['side'].upper()
-                        
+
                         if side == 'BUY':
                             current_holdings[sym] = current_holdings.get(sym, 0.0) + qty
                             current_cash -= (qty * price + fee)
@@ -183,7 +195,9 @@ class PortfolioEngine:
                             current_holdings[sym] = current_holdings.get(sym, 0.0) - qty
                             current_cash += (qty * price - fee)
                         elif side == 'DEPOSIT':
-                            current_cash += qty # Assuming qty is amount
+                            # Skip DEPOSIT if it was already counted in initial_cash
+                            if idx not in initial_deposit_indices:
+                                current_cash += qty
                         elif side == 'WITHDRAW':
                             current_cash -= qty
 

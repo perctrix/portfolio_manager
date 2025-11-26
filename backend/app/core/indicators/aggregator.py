@@ -11,6 +11,24 @@ from . import trading as trading_module
 from . import tail_risk as tail_risk_module
 from . import correlation_beta
 
+def sanitize_for_json(obj: Any) -> Any:
+    """Recursively convert NaN and Inf values to None for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, float):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    return obj
+
 def calculate_basic_portfolio_indicators(nav: pd.Series) -> Dict[str, float]:
     """Calculate 5 basic portfolio indicators
 
@@ -40,13 +58,14 @@ def calculate_basic_portfolio_indicators(nav: pd.Series) -> Dict[str, float]:
     sharpe = ratios_module.calculate_sharpe_ratio(returns)
     max_drawdown = drawdown_module.calculate_max_drawdown(nav)
 
-    return {
+    result = {
         'total_return': float(total_return),
         'cagr': float(cagr),
         'volatility': float(volatility),
         'sharpe': float(sharpe),
         'max_drawdown': float(max_drawdown)
     }
+    return sanitize_for_json(result)
 
 def calculate_all_portfolio_indicators(
     nav: pd.Series,
@@ -206,7 +225,7 @@ def calculate_all_portfolio_indicators(
             result['correlation']['max_pairwise'] = max_corr
             result['correlation']['min_pairwise'] = min_corr
 
-    return result
+    return sanitize_for_json(result)
 
 
 def calculate_benchmark_comparison(
