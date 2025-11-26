@@ -10,6 +10,7 @@ class PortfolioEngine:
     def __init__(self, portfolio: Portfolio, data: list[dict]):
         self.portfolio = portfolio
         self.failed_tickers: list[str] = []
+        self.suggested_initial_deposit: float = 0.0
 
         if self.portfolio.type == PortfolioType.TRANSACTION:
             if data:
@@ -23,6 +24,31 @@ class PortfolioEngine:
                 self.positions = pd.DataFrame(data)
             else:
                 self.positions = pd.DataFrame(columns=["as_of", "symbol", "quantity", "cost_basis", "currency", "note"])
+
+    def _calculate_suggested_deposit(self, txns: pd.DataFrame) -> float:
+        """Calculate suggested initial deposit amount based on transaction history"""
+        temp_cash = 0.0
+        min_cash = 0.0
+
+        for _, txn in txns.iterrows():
+            side = txn['side'].upper()
+            qty = float(txn['quantity'])
+            price = float(txn['price'])
+            fee = float(txn['fee']) if not pd.isna(txn['fee']) else 0.0
+
+            if side == 'BUY':
+                temp_cash -= (qty * price + fee)
+            elif side == 'SELL':
+                temp_cash += (qty * price - fee)
+            elif side == 'DEPOSIT':
+                temp_cash += qty
+            elif side == 'WITHDRAW':
+                temp_cash -= qty
+
+            min_cash = min(min_cash, temp_cash)
+
+        suggested = abs(min_cash) if min_cash < 0 else 0.0
+        return round(suggested, -2) if suggested > 100 else round(suggested, 2)
 
     def calculate_nav_history(self) -> pd.Series:
         """
@@ -70,6 +96,23 @@ class PortfolioEngine:
             if txns.empty:
                 return pd.Series()
 
+            # Check if there is an initial DEPOSIT
+            txns_sorted = txns.sort_values('datetime')
+            deposit_txns = txns_sorted[txns_sorted['side'].str.upper() == 'DEPOSIT']
+            has_initial_deposit = False
+            initial_cash = 0.0
+
+            if not deposit_txns.empty:
+                first_txn = txns_sorted.iloc[0]
+                first_deposit = deposit_txns.iloc[0]
+                if first_deposit['datetime'] == first_txn['datetime']:
+                    has_initial_deposit = True
+
+            if not has_initial_deposit:
+                suggested_amount = self._calculate_suggested_deposit(txns_sorted)
+                self.suggested_initial_deposit = suggested_amount
+                initial_cash = suggested_amount
+
             # Identify all symbols and date range
             symbols = txns['symbol'].unique()
             start_date = txns['datetime'].min().date()
@@ -97,7 +140,7 @@ class PortfolioEngine:
             
             # Initialize state
             current_holdings = {sym: 0.0 for sym in symbols}
-            current_cash = 0.0
+            current_cash = initial_cash
             
             nav_history = {}
             
