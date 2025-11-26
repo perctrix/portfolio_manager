@@ -134,10 +134,15 @@ def calculate_all_portfolio_indicators(
     recovery_info = drawdown_module.calculate_recovery_time(nav)
     result['drawdown'].update(recovery_info)
 
+    result['drawdown']['ulcer_index'] = drawdown_module.calculate_ulcer_index(nav)
+
     result['risk_adjusted_ratios'] = {}
     result['risk_adjusted_ratios']['sharpe'] = ratios_module.calculate_sharpe_ratio(returns)
     result['risk_adjusted_ratios']['sortino'] = ratios_module.calculate_sortino_ratio(returns)
     result['risk_adjusted_ratios']['calmar'] = ratios_module.calculate_calmar_ratio(nav, returns)
+    result['risk_adjusted_ratios']['omega'] = ratios_module.calculate_omega_ratio(returns)
+    result['risk_adjusted_ratios']['gain_to_pain'] = ratios_module.calculate_gain_to_pain_ratio(returns)
+    result['risk_adjusted_ratios']['ulcer_performance_index'] = ratios_module.calculate_ulcer_performance_index(nav, returns)
 
     rolling_sharpe_30d = ratios_module.calculate_rolling_sharpe(returns, window=30)
     result['risk_adjusted_ratios']['rolling_sharpe_30d'] = float(rolling_sharpe_30d.iloc[-1]) if not rolling_sharpe_30d.empty and len(rolling_sharpe_30d) > 0 else 0.0
@@ -147,6 +152,7 @@ def calculate_all_portfolio_indicators(
     result['tail_risk']['cvar_95'] = tail_risk_module.calculate_cvar(returns, 0.95)
     result['tail_risk']['skewness'] = tail_risk_module.calculate_skewness(returns)
     result['tail_risk']['kurtosis'] = tail_risk_module.calculate_kurtosis(returns, excess=True)
+    result['tail_risk']['tail_ratio'] = tail_risk_module.calculate_tail_ratio(returns)
 
     if weights is not None and len(weights) > 0:
         result['allocation'] = {}
