@@ -9,6 +9,7 @@ scipy
 tqdm
 requests
 portalocker
+apscheduler>=3.10.0,<4.0.0
 # TA-Lib can be tricky on Windows. If this fails, user might need a wheel.
 # We will try to use it since user code uses it.
 TA-Lib
