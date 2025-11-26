@@ -54,3 +54,21 @@ export function addTransaction(id: string, transaction: any): void {
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }
+
+export function updateTransaction(id: string, index: number, transaction: any): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[id] && portfolios[id].data[index]) {
+        portfolios[id].data[index] = transaction;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function deleteTransaction(id: string, index: number): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[id] && portfolios[id].data[index] !== undefined) {
+        portfolios[id].data.splice(index, 1);
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
