@@ -1,5 +1,7 @@
 # Portfolio Manager
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 A lightweight, privacy-focused portfolio management and analysis tool with comprehensive performance metrics.
 
 ## Features
