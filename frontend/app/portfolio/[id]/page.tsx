@@ -79,9 +79,10 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
                 setNavHistory(navResult.nav);
 
+                const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
                 if (navResult.suggested_initial_deposit &&
                     navResult.suggested_initial_deposit > 0 &&
-                    !dismissedDepositPrompt) {
+                    !isDismissed) {
                     setSuggestedDeposit(navResult.suggested_initial_deposit);
                     setShowDepositPrompt(true);
                 }
