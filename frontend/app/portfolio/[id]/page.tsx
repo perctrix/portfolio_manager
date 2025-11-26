@@ -49,6 +49,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [showDepositPrompt, setShowDepositPrompt] = useState(false);
     const [dismissedDepositPrompt, setDismissedDepositPrompt] = useState(false);
     const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
+    const [editingTransactionData, setEditingTransactionData] = useState<any | null>(null);
 
     useEffect(() => {
         const dismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
@@ -69,11 +70,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             setPortfolio(portfolioData.meta);
             // Sort transactions by datetime (most recent first for display)
             const sortedData = portfolioData.meta?.type === 'transaction'
-                ? [...portfolioData.data].sort((a, b) => {
-                    const dateA = new Date(a.datetime || a.as_of);
-                    const dateB = new Date(b.datetime || b.as_of);
-                    return dateB.getTime() - dateA.getTime(); // Descending order
-                  })
+                ? portfolioData.data.map((item: any, index: number) => ({ ...item, _originalIndex: index }))
+                    .sort((a, b) => {
+                        const dateA = new Date(a.datetime || a.as_of);
+                        const dateB = new Date(b.datetime || b.as_of);
+                        return dateB.getTime() - dateA.getTime(); // Descending order
+                    })
                 : portfolioData.data;
             setHoldings(sortedData);
             setLoadingStep(1);
@@ -153,15 +155,21 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
-    function handleEditTransaction(index: number) {
-        setEditingTransactionIndex(index);
-        setIsAddTxnOpen(true);
+    function handleEditTransaction(displayIndex: number) {
+        const originalIndex = holdings[displayIndex]?._originalIndex ?? displayIndex;
+        const portfolioData = getPortfolio(id);
+        if (portfolioData && portfolioData.data[originalIndex]) {
+            setEditingTransactionIndex(originalIndex);
+            setEditingTransactionData(portfolioData.data[originalIndex]);
+            setIsAddTxnOpen(true);
+        }
     }
 
-    function handleDeleteTransaction(index: number) {
+    function handleDeleteTransaction(displayIndex: number) {
         if (confirm('Are you sure you want to delete this transaction?')) {
             try {
-                deleteTransaction(id, index);
+                const originalIndex = holdings[displayIndex]?._originalIndex ?? displayIndex;
+                deleteTransaction(id, originalIndex);
                 loadData();
             } catch (err) {
                 console.error(err);
@@ -780,9 +788,10 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 onClose={() => {
                     setIsAddTxnOpen(false);
                     setEditingTransactionIndex(null);
+                    setEditingTransactionData(null);
                 }}
                 onSubmit={handleAddTransaction}
-                initialData={editingTransactionIndex !== null ? holdings[editingTransactionIndex] : undefined}
+                initialData={editingTransactionData}
             />
 
             <EditSnapshotModal
