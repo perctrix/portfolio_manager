@@ -122,6 +122,10 @@ export interface BenchmarkMetrics {
     correlation: number;
     tracking_error: number;
     information_ratio: number;
+    treynor_ratio?: number;
+    m2_measure?: number;
+    upside_capture?: number;
+    downside_capture?: number;
 }
 
 export interface BenchmarkComparison {

@@ -73,9 +73,11 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
                             <th className="text-left py-3 px-3 font-semibold text-gray-700">Benchmark</th>
                             <th className="text-right py-3 px-3 font-semibold text-gray-700">Beta</th>
                             <th className="text-right py-3 px-3 font-semibold text-gray-700">Alpha</th>
+                            <th className="text-right py-3 px-3 font-semibold text-gray-700">Treynor</th>
+                            <th className="text-right py-3 px-3 font-semibold text-gray-700">M²</th>
+                            <th className="text-right py-3 px-3 font-semibold text-gray-700">Up Cap</th>
+                            <th className="text-right py-3 px-3 font-semibold text-gray-700">Down Cap</th>
                             <th className="text-right py-3 px-3 font-semibold text-gray-700">R²</th>
-                            <th className="text-right py-3 px-3 font-semibold text-gray-700">Correlation</th>
-                            <th className="text-right py-3 px-3 font-semibold text-gray-700">Tracking Error</th>
                             <th className="text-right py-3 px-3 font-semibold text-gray-700">Info Ratio</th>
                         </tr>
                     </thead>
@@ -95,18 +97,28 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
                                     {renderMetricCell(data.metrics.alpha, true)}
                                 </td>
                                 <td className="text-right py-3 px-3">
+                                    {data.metrics.treynor_ratio !== undefined ? renderMetricCell(data.metrics.treynor_ratio) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="text-right py-3 px-3">
+                                    {data.metrics.m2_measure !== undefined ? renderMetricCell(data.metrics.m2_measure, true) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="text-right py-3 px-3">
+                                    {data.metrics.upside_capture !== undefined ? (
+                                        <span className={data.metrics.upside_capture > 100 ? 'text-green-600' : 'text-gray-600'}>
+                                            {formatNumber(data.metrics.upside_capture)}%
+                                        </span>
+                                    ) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="text-right py-3 px-3">
+                                    {data.metrics.downside_capture !== undefined ? (
+                                        <span className={data.metrics.downside_capture < 100 ? 'text-green-600' : 'text-red-600'}>
+                                            {formatNumber(data.metrics.downside_capture)}%
+                                        </span>
+                                    ) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="text-right py-3 px-3">
                                     <span className="text-gray-600">
                                         {formatNumber(data.metrics.r_squared, 3)}
-                                    </span>
-                                </td>
-                                <td className="text-right py-3 px-3">
-                                    <span className="text-gray-600">
-                                        {formatNumber(data.metrics.correlation, 3)}
-                                    </span>
-                                </td>
-                                <td className="text-right py-3 px-3">
-                                    <span className="text-gray-600">
-                                        {formatPercent(data.metrics.tracking_error)}
                                     </span>
                                 </td>
                                 <td className="text-right py-3 px-3">
@@ -122,9 +134,11 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
                 <div className="text-xs text-gray-600 space-y-1">
                     <p><strong>Beta:</strong> Systematic risk (1.0 = moves with benchmark)</p>
                     <p><strong>Alpha:</strong> Excess return above benchmark-predicted return</p>
+                    <p><strong>Treynor:</strong> Return per unit of systematic risk (higher is better)</p>
+                    <p><strong>M²:</strong> Risk-adjusted return vs benchmark in percentage terms</p>
+                    <p><strong>Up Cap:</strong> Upside capture ratio ({'>'}100% = outperforms in bull markets)</p>
+                    <p><strong>Down Cap:</strong> Downside capture ratio ({'<'}100% = outperforms in bear markets)</p>
                     <p><strong>R²:</strong> Proportion of variance explained by benchmark (0-1)</p>
-                    <p><strong>Correlation:</strong> Linear relationship strength (-1 to 1)</p>
-                    <p><strong>Tracking Error:</strong> Standard deviation of excess returns</p>
                     <p><strong>Information Ratio:</strong> Excess return per unit of tracking error</p>
                 </div>
             </div>

@@ -573,6 +573,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     { label: 'Max Drawdown', value: allIndicators.drawdown.max_drawdown, format: 'percentage', trend: 'down' },
                                     { label: 'Max Drawdown Duration', value: allIndicators.drawdown.max_drawdown_duration || 0, format: 'days' },
                                     { label: 'Average Drawdown', value: allIndicators.drawdown.avg_drawdown, format: 'percentage' },
+                                    { label: 'Ulcer Index', value: allIndicators.drawdown.ulcer_index || 0, format: 'number', description: 'Downside risk (depth & duration)' },
                                     { label: 'Recovery Days', value: allIndicators.drawdown.recovery_days || 0, format: 'days' },
                                     { label: 'Consecutive Loss Days', value: allIndicators.drawdown.consecutive_loss_days, format: 'days' },
                                     { label: 'Consecutive Gain Days', value: allIndicators.drawdown.consecutive_gain_days, format: 'days' },
@@ -593,6 +594,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     { label: 'Rolling Sharpe (30d)', value: allIndicators.risk_adjusted_ratios.rolling_sharpe_30d, format: 'number' },
                                     { label: 'Sortino Ratio', value: allIndicators.risk_adjusted_ratios.sortino, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sortino) },
                                     { label: 'Calmar Ratio', value: allIndicators.risk_adjusted_ratios.calmar, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.calmar) },
+                                    ...(allIndicators.risk_adjusted_ratios.treynor ? [{ label: 'Treynor Ratio', value: allIndicators.risk_adjusted_ratios.treynor, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.treynor), description: 'Return per unit of systematic risk' }] : []),
+                                    ...(allIndicators.risk_adjusted_ratios.omega ? [{ label: 'Omega Ratio', value: allIndicators.risk_adjusted_ratios.omega, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.omega), description: 'Probability weighted gains/losses' }] : []),
+                                    ...(allIndicators.risk_adjusted_ratios.m2_measure ? [{ label: 'M² Measure', value: allIndicators.risk_adjusted_ratios.m2_measure, format: 'percentage' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.m2_measure), description: 'Risk-adjusted return vs benchmark' }] : []),
+                                    ...(allIndicators.risk_adjusted_ratios.gain_to_pain ? [{ label: 'Gain-to-Pain Ratio', value: allIndicators.risk_adjusted_ratios.gain_to_pain, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.gain_to_pain), description: 'Total gains / total losses' }] : []),
+                                    ...(allIndicators.risk_adjusted_ratios.ulcer_performance_index ? [{ label: 'Ulcer Performance Index', value: allIndicators.risk_adjusted_ratios.ulcer_performance_index, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.ulcer_performance_index), description: 'Return / Ulcer Index' }] : []),
                                 ]}
                                 columns={4}
                             />
@@ -610,6 +616,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     { label: 'CVaR (95%)', value: allIndicators.tail_risk.cvar_95, format: 'percentage', trend: 'down' },
                                     { label: 'Skewness', value: allIndicators.tail_risk.skewness, format: 'number' },
                                     { label: 'Kurtosis', value: allIndicators.tail_risk.kurtosis, format: 'number' },
+                                    ...(allIndicators.tail_risk.tail_ratio ? [{ label: 'Tail Ratio', value: allIndicators.tail_risk.tail_ratio, format: 'number' as const, trend: getTrendDirection(allIndicators.tail_risk.tail_ratio), description: '95th / 5th percentile returns' }] : []),
                                 ]}
                                 columns={4}
                             />
@@ -649,8 +656,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                         { label: 'Trade Count', value: allIndicators.trading.trade_count, format: 'number' },
                                         { label: 'Win Rate', value: allIndicators.trading.win_rate, format: 'percentage', trend: getTrendDirection(allIndicators.trading.win_rate) },
                                         { label: 'Profit/Loss Ratio', value: allIndicators.trading.profit_loss_ratio, format: 'number', trend: getTrendDirection(allIndicators.trading.profit_loss_ratio) },
-                                        { label: 'Turnover Rate', value: allIndicators.trading.turnover_rate, format: 'percentage' },
-                                        { label: 'Avg Holding Period', value: allIndicators.trading.avg_holding_period, format: 'days' },
+                                        ...(allIndicators.trading.profit_factor ? [{ label: 'Profit Factor', value: allIndicators.trading.profit_factor, format: 'number' as const, trend: getTrendDirection(allIndicators.trading.profit_factor), description: 'Gross profit / gross loss' }] : []),
+                                        { label: 'Turnover Rate', value: allIndicators.trading.turnover_rate, format: 'percentage' as const },
+                                        { label: 'Avg Holding Period', value: allIndicators.trading.avg_holding_period, format: 'days' as const },
+                                        ...(allIndicators.trading.recovery_factor ? [{ label: 'Recovery Factor', value: allIndicators.trading.recovery_factor, format: 'number' as const, trend: getTrendDirection(allIndicators.trading.recovery_factor), description: 'Net profit / max drawdown' }] : []),
+                                        ...(allIndicators.trading.kelly_criterion ? [{ label: 'Kelly Criterion', value: allIndicators.trading.kelly_criterion, format: 'percentage' as const, description: 'Optimal position size' }] : []),
                                         { label: 'Consecutive Wins', value: allIndicators.trading.consecutive_winning_trades, format: 'number' },
                                         { label: 'Consecutive Losses', value: allIndicators.trading.consecutive_losing_trades, format: 'number' },
                                     ]}

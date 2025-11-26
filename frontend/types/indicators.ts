@@ -34,6 +34,7 @@ export interface DrawdownMetrics {
   avg_drawdown_duration?: number;
   recovery_days?: number;
   recovered?: boolean;
+  ulcer_index?: number;
 }
 
 export interface RiskAdjustedRatios {
@@ -41,6 +42,11 @@ export interface RiskAdjustedRatios {
   sortino: number;
   calmar: number;
   rolling_sharpe_30d: number;
+  treynor?: number;
+  omega?: number;
+  m2_measure?: number;
+  gain_to_pain?: number;
+  ulcer_performance_index?: number;
 }
 
 export interface TailRiskMetrics {
@@ -48,6 +54,7 @@ export interface TailRiskMetrics {
   cvar_95: number;
   skewness: number;
   kurtosis: number;
+  tail_ratio?: number;
 }
 
 export interface AllocationMetrics {
@@ -87,6 +94,9 @@ export interface TradingMetrics {
   max_trade_loss: number;
   consecutive_winning_trades: number;
   consecutive_losing_trades: number;
+  profit_factor?: number;
+  recovery_factor?: number;
+  kelly_criterion?: number;
 }
 
 export interface AllIndicators {
