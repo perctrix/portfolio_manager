@@ -168,6 +168,7 @@ class PortfolioEngine:
             current_cash = initial_cash
 
             nav_history = {}
+            cash_history = {}
 
             # Iterate through each day (including transaction-only days)
             # We need to process transactions that happened on or before this day
@@ -208,9 +209,11 @@ class PortfolioEngine:
                         # Use today's price, or prev if missing
                         if not pd.isna(price_df.at[date, sym]):
                             daily_value += qty * price_df.at[date, sym]
-                
+
                 nav_history[date] = daily_value
-                
+                cash_history[date] = current_cash
+
+            self.cash_history = pd.Series(cash_history)
             return pd.Series(nav_history)
             
         return pd.Series()

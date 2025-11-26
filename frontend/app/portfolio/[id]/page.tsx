@@ -27,6 +27,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const { id } = use(params);
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
     const [navHistory, setNavHistory] = useState<any[]>([]);
+    const [cashHistory, setCashHistory] = useState<any[]>([]);
     const [indicators, setIndicators] = useState<any>({});
     const [holdings, setHoldings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -78,6 +79,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
                 setNavHistory(navResult.nav);
+                setCashHistory(navResult.cash || []);
 
                 const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
                 if (navResult.suggested_initial_deposit &&
@@ -486,7 +488,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             <span className="text-xs text-gray-500">Normalized to 0% at start</span>
                         )}
                     </div>
-                    <NavChart data={navHistory} comparisonData={comparisonData} benchmarkData={benchmarkData} />
+                    <NavChart data={navHistory} cashData={cashHistory} comparisonData={comparisonData} benchmarkData={benchmarkData} />
                 </div>
 
                 <BenchmarkPanel
