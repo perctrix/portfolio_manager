@@ -1,6 +1,6 @@
 # Portfolio Manager
 
-[English](README.md) | [中文](README.zh-CN.md)
+[English](README.md) | [中文](README_zh.md)
 
 A lightweight, privacy-focused portfolio management and analysis tool with comprehensive performance metrics.
 
@@ -14,6 +14,76 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - **79 Comprehensive Indicators**: Returns, risk metrics, drawdown analysis, risk-adjusted ratios, tail risk measures, allocation analysis, risk decomposition, and trading metrics
 - **5 Basic Indicators**: Total return, CAGR, volatility, Sharpe ratio, and maximum drawdown for quick analysis
 - **Benchmark Comparison**: Compare portfolio performance against 8 major market indices (S&P 500, NASDAQ, Dow Jones, Russell 2000, DAX, FTSE 100, Hang Seng, Shanghai Composite)
+
+<details>
+<summary><b>📊 Complete Indicator List (Click to expand)</b></summary>
+
+#### Returns Metrics (16 indicators)
+- Simple Returns, Log Returns, Cumulative Returns
+- Annualized Return, CAGR (Compound Annual Growth Rate)
+- Monthly Returns, Yearly Returns
+- YTD Return (Year-to-Date), MTD Return (Month-to-Date)
+- Rolling Return
+- Realized P&L, Unrealized P&L, Total P&L
+- Trade P&L
+- TWR (Time-Weighted Return)
+- IRR (Internal Rate of Return)
+
+#### Risk Metrics (6 indicators)
+- Daily Volatility, Annualized Volatility
+- Rolling Volatility
+- Upside Volatility, Downside Volatility
+- Semivariance
+
+#### Drawdown Analysis (9 indicators)
+- Drawdown Series
+- Max Drawdown, Average Drawdown
+- Drawdown Duration, Recovery Time
+- Max Daily Loss, Max Daily Gain
+- Consecutive Loss Days, Consecutive Gain Days
+
+#### Risk-Adjusted Ratios (4 indicators)
+- Sharpe Ratio, Rolling Sharpe
+- Sortino Ratio
+- Calmar Ratio
+
+#### Tail Risk Measures (4 indicators)
+- VaR (Value at Risk) at 95% confidence
+- CVaR (Conditional Value at Risk) at 95% confidence
+- Skewness
+- Kurtosis
+
+#### Allocation Analysis (13 indicators)
+- Portfolio Weights, Weight History
+- Top N Concentration, HHI (Herfindahl Index)
+- Sector Allocation, Industry Allocation
+- Max Weight, Weight Deviation from Equal
+- Long/Short Exposure
+- Portfolio Volatility
+- MCTR (Marginal Contribution to Risk)
+- Risk Contribution by Asset
+- Risk Contribution by Sector
+
+#### Trading Metrics (11 indicators - Transaction mode only)
+- Trade Count
+- Turnover Rate, Turnover Rate by Asset
+- Average Holding Period
+- Win Rate, Profit/Loss Ratio
+- Max Trade Profit, Max Trade Loss
+- Consecutive Winning Trades, Consecutive Losing Trades
+- Comprehensive Trading Metrics
+
+#### Correlation & Beta Analysis (12 indicators)
+- Correlation to Portfolio
+- Correlation Matrix, Covariance Matrix
+- Beta, Alpha, R-Squared
+- Tracking Error, Information Ratio
+- All Benchmark Metrics
+- Multi-Benchmark Metrics
+- Mean Pairwise Correlation
+- Max/Min Correlation
+
+</details>
 
 ### Technical Analysis
 - Moving averages (SMA, EMA, WMA)
