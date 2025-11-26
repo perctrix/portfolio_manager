@@ -103,10 +103,23 @@ class PortfolioEngine:
             initial_cash = 0.0
 
             if not deposit_txns.empty:
-                first_txn = txns_sorted.iloc[0]
-                first_deposit = deposit_txns.iloc[0]
-                if first_deposit['datetime'] == first_txn['datetime']:
+                # Find first BUY/SELL transaction
+                trade_txns = txns_sorted[txns_sorted['side'].str.upper().isin(['BUY', 'SELL'])]
+
+                if not trade_txns.empty:
+                    first_trade_time = trade_txns.iloc[0]['datetime']
+                    # Check if any DEPOSIT exists before or at the same time as first trade
+                    # Use floor to minute to handle precision issues
+                    first_trade_time_floored = first_trade_time.floor('min')
+                    early_deposits = deposit_txns[deposit_txns['datetime'].dt.floor('min') <= first_trade_time_floored]
+
+                    if not early_deposits.empty:
+                        has_initial_deposit = True
+                        initial_cash = early_deposits['quantity'].sum()
+                else:
+                    # Only DEPOSIT transactions exist, no trades yet
                     has_initial_deposit = True
+                    initial_cash = deposit_txns['quantity'].sum()
 
             if not has_initial_deposit:
                 suggested_amount = self._calculate_suggested_deposit(txns_sorted)

@@ -42,7 +42,7 @@ def calculate_monthly_returns(returns: pd.Series) -> pd.Series:
     if returns.empty:
         return pd.Series()
 
-    monthly = (1 + returns).resample('M').prod() - 1
+    monthly = (1 + returns).resample('ME').prod() - 1
     return monthly
 
 def calculate_yearly_returns(returns: pd.Series) -> pd.Series:
@@ -50,7 +50,7 @@ def calculate_yearly_returns(returns: pd.Series) -> pd.Series:
     if returns.empty:
         return pd.Series()
 
-    yearly = (1 + returns).resample('Y').prod() - 1
+    yearly = (1 + returns).resample('YE').prod() - 1
     return yearly
 
 def calculate_ytd_return(nav: pd.Series) -> float:

@@ -183,8 +183,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             addTransaction(id, depositTxn);
             setShowDepositPrompt(false);
             setSuggestedDeposit(null);
-            localStorage.removeItem(`dismissed-deposit-${id}`);
-            setDismissedDepositPrompt(false);
+            localStorage.setItem(`dismissed-deposit-${id}`, 'true');
+            setDismissedDepositPrompt(true);
             loadData();
         } catch (err) {
             console.error(err);
@@ -534,7 +534,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     </tr>
                                 ) : (
                                     holdings.map((row, i) => (
-                                        <tr key={i} className="hover:bg-gray-50">
+                                        <tr key={`${row.datetime || row.as_of}-${row.symbol}-${i}`} className="hover:bg-gray-50">
                                             <td className="px-6 py-3">
                                                 {row.symbol && row.symbol !== 'CASH' && (
                                                     <button

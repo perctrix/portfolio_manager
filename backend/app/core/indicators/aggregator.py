@@ -108,7 +108,10 @@ def calculate_all_portfolio_indicators(
     )
 
     monthly_returns = returns_module.calculate_monthly_returns(returns)
-    result['returns']['monthly_returns'] = monthly_returns.to_dict() if not monthly_returns.empty else {}
+    result['returns']['monthly_returns'] = {
+        k.strftime('%Y-%m') if hasattr(k, 'strftime') else str(k): v
+        for k, v in monthly_returns.to_dict().items()
+    } if not monthly_returns.empty else {}
 
     result['risk'] = {}
     result['risk']['daily_volatility'] = risk_module.calculate_daily_volatility(returns)
