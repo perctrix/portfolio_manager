@@ -11,9 +11,9 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - **Snapshot Mode**: Manage current positions with cost basis tracking
 
 ### Performance Analysis
-- **79 Comprehensive Indicators**: Returns, risk metrics, drawdown analysis, risk-adjusted ratios, tail risk measures, allocation analysis, risk decomposition, and trading metrics
+- **95+ Comprehensive Indicators**: Returns, risk metrics, drawdown analysis, risk-adjusted ratios, tail risk measures, allocation analysis, risk decomposition, and trading metrics
 - **5 Basic Indicators**: Total return, CAGR, volatility, Sharpe ratio, and maximum drawdown for quick analysis
-- **Benchmark Comparison**: Compare portfolio performance against 8 major market indices (S&P 500, NASDAQ, Dow Jones, Russell 2000, DAX, FTSE 100, Hang Seng, Shanghai Composite)
+- **Benchmark Comparison**: Compare portfolio performance against 8 major market indices with advanced metrics (Beta, Alpha, Treynor Ratio, M2 Measure, Capture Ratios, etc.)
 
 <details>
 <summary><b>📊 Complete Indicator List (Click to expand)</b></summary>
@@ -35,23 +35,29 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - Upside Volatility, Downside Volatility
 - Semivariance
 
-#### Drawdown Analysis (9 indicators)
+#### Drawdown Analysis (10 indicators)
 - Drawdown Series
-- Max Drawdown, Average Drawdown
+- Max Drawdown, Average Drawdown, Ulcer Index
 - Drawdown Duration, Recovery Time
 - Max Daily Loss, Max Daily Gain
 - Consecutive Loss Days, Consecutive Gain Days
 
-#### Risk-Adjusted Ratios (4 indicators)
+#### Risk-Adjusted Ratios (9 indicators)
 - Sharpe Ratio, Rolling Sharpe
 - Sortino Ratio
 - Calmar Ratio
+- Treynor Ratio
+- Omega Ratio
+- M2 Measure (Modigliani-Modigliani)
+- Gain-to-Pain Ratio
+- Ulcer Performance Index
 
-#### Tail Risk Measures (4 indicators)
+#### Tail Risk Measures (5 indicators)
 - VaR (Value at Risk) at 95% confidence
 - CVaR (Conditional Value at Risk) at 95% confidence
 - Skewness
 - Kurtosis
+- Tail Ratio (95th / 5th percentile)
 
 #### Allocation Analysis (13 indicators)
 - Portfolio Weights, Weight History
@@ -64,20 +70,27 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - Risk Contribution by Asset
 - Risk Contribution by Sector
 
-#### Trading Metrics (11 indicators - Transaction mode only)
+#### Trading Metrics (14 indicators - Transaction mode only)
 - Trade Count
 - Turnover Rate, Turnover Rate by Asset
 - Average Holding Period
 - Win Rate, Profit/Loss Ratio
 - Max Trade Profit, Max Trade Loss
 - Consecutive Winning Trades, Consecutive Losing Trades
+- Profit Factor (Gross Profit / Gross Loss)
+- Recovery Factor (Net Profit / Max Drawdown)
+- Kelly Criterion (Optimal Position Sizing)
 - Comprehensive Trading Metrics
 
-#### Correlation & Beta Analysis (12 indicators)
+#### Correlation & Beta Analysis (16 indicators)
 - Correlation to Portfolio
 - Correlation Matrix, Covariance Matrix
 - Beta, Alpha, R-Squared
 - Tracking Error, Information Ratio
+- Treynor Ratio (vs Benchmark)
+- M2 Measure (vs Benchmark)
+- Upside Capture Ratio
+- Downside Capture Ratio
 - All Benchmark Metrics
 - Multi-Benchmark Metrics
 - Mean Pairwise Correlation
