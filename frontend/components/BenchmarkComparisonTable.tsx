@@ -22,7 +22,7 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
         const isNeutral = Math.abs(value) < 0.001;
 
         return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 justify-end">
                 {!isNeutral && (
                     isPositive ? (
                         <TrendingUp className="w-4 h-4 text-green-600" />
@@ -97,7 +97,7 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
                                     {renderMetricCell(data.metrics.alpha, true)}
                                 </td>
                                 <td className="text-right py-3 px-3">
-                                    {data.metrics.treynor_ratio !== undefined ? renderMetricCell(data.metrics.treynor_ratio) : <span className="text-gray-400">-</span>}
+                                    {data.metrics.treynor_ratio !== undefined ? renderMetricCell(data.metrics.treynor_ratio * 100) : <span className="text-gray-400">-</span>}
                                 </td>
                                 <td className="text-right py-3 px-3">
                                     {data.metrics.m2_measure !== undefined ? renderMetricCell(data.metrics.m2_measure, true) : <span className="text-gray-400">-</span>}
