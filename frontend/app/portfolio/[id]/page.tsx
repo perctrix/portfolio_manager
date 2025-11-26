@@ -68,7 +68,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             setPortfolio(portfolioData.meta);
             // Sort transactions by datetime (most recent first for display)
-            const sortedData = portfolioData.type === 'transaction'
+            const sortedData = portfolioData.meta?.type === 'transaction'
                 ? [...portfolioData.data].sort((a, b) => {
                     const dateA = new Date(a.datetime || a.as_of);
                     const dateB = new Date(b.datetime || b.as_of);
