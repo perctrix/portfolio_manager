@@ -68,18 +68,5 @@ if __name__ == '__main__':
     # Print some key information
     print(f"Company Name: {info.get('longName')}")
     print(f"Industry: {info.get('industry')}")
-    current_price = info.get('currentPrice')
-    if isinstance(current_price, dict):
-        current_price = current_price.get('raw')
-    elif current_price is None:
-        current_price = info.get('regularMarketPrice')
-    print(f"Current Price: {current_price}")
-    market_cap = info.get('marketCap')
-    if isinstance(market_cap, dict):
-        market_cap = market_cap.get('raw')
-    print(f"Market Cap: {market_cap}")
-    trailing_pe = info.get('trailingPE')
-    if isinstance(trailing_pe, dict):
-        trailing_pe = trailing_pe.get('raw')
-    print(f"PE Ratio: {trailing_pe}")
-    print(f"Number of Employees: {info.get('fullTimeEmployees')}")
+    print(f"Sector: {info.get('sector')}")
+    print(f"Market Cap: {info.get('marketCap')}")
