@@ -89,11 +89,66 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
         });
     }, [data, timeRange, customStartDate, customEndDate]);
 
+    const maxDrawdown = useMemo(() => {
+        if (filteredData.length === 0 || isComparisonMode) return null;
+
+        let peak = filteredData[0].value;
+        let peakDate = filteredData[0].date;
+        let maxDD = 0;
+        let maxDDStart = filteredData[0].date;
+        let maxDDEnd = filteredData[0].date;
+        let maxDDPeakValue = filteredData[0].value;
+        let maxDDTroughValue = filteredData[0].value;
+
+        for (let i = 1; i < filteredData.length; i++) {
+            const current = filteredData[i].value;
+            const currentDate = filteredData[i].date;
+
+            if (current > peak) {
+                peak = current;
+                peakDate = currentDate;
+            }
+
+            const drawdown = (current - peak) / peak;
+            if (drawdown < maxDD) {
+                maxDD = drawdown;
+                maxDDStart = peakDate;
+                maxDDEnd = currentDate;
+                maxDDPeakValue = peak;
+                maxDDTroughValue = current;
+            }
+        }
+
+        if (maxDD >= 0) return null;
+
+        return {
+            startDate: maxDDStart,
+            endDate: maxDDEnd,
+            drawdown: maxDD,
+            peakValue: maxDDPeakValue,
+            troughValue: maxDDTroughValue
+        };
+    }, [filteredData, isComparisonMode]);
+
     const sampledData = useMemo(() => {
         if (filteredData.length <= 300) return filteredData;
+
+        const keyIndices = new Set<number>();
+        keyIndices.add(0);
+        keyIndices.add(filteredData.length - 1);
+
+        if (maxDrawdown) {
+            const peakIdx = filteredData.findIndex(d => d.date === maxDrawdown.startDate);
+            const troughIdx = filteredData.findIndex(d => d.date === maxDrawdown.endDate);
+            if (peakIdx >= 0) keyIndices.add(peakIdx);
+            if (troughIdx >= 0) keyIndices.add(troughIdx);
+        }
+
         const step = Math.ceil(filteredData.length / 300);
-        return filteredData.filter((_, idx) => idx % step === 0 || idx === filteredData.length - 1);
-    }, [filteredData]);
+        return filteredData.filter((_, idx) =>
+            idx % step === 0 || keyIndices.has(idx)
+        );
+    }, [filteredData, maxDrawdown]);
 
     const handleMouseMove = useCallback((e: any) => {
         if (!isDragging || !e || !e.activeLabel) return;
@@ -186,47 +241,6 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
         if (isComparisonMode) return `${val.toFixed(2)}%`;
         return `$${val.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
     };
-
-    const maxDrawdown = useMemo(() => {
-        if (filteredData.length === 0 || isComparisonMode) return null;
-
-        let peak = filteredData[0].value;
-        let peakDate = filteredData[0].date;
-        let maxDD = 0;
-        let maxDDStart = filteredData[0].date;
-        let maxDDEnd = filteredData[0].date;
-        let maxDDPeakValue = filteredData[0].value;
-        let maxDDTroughValue = filteredData[0].value;
-
-        for (let i = 1; i < filteredData.length; i++) {
-            const current = filteredData[i].value;
-            const currentDate = filteredData[i].date;
-
-            if (current > peak) {
-                peak = current;
-                peakDate = currentDate;
-            }
-
-            const drawdown = (current - peak) / peak;
-            if (drawdown < maxDD) {
-                maxDD = drawdown;
-                maxDDStart = peakDate;
-                maxDDEnd = currentDate;
-                maxDDPeakValue = peak;
-                maxDDTroughValue = current;
-            }
-        }
-
-        if (maxDD >= 0) return null;
-
-        return {
-            startDate: maxDDStart,
-            endDate: maxDDEnd,
-            drawdown: maxDD,
-            peakValue: maxDDPeakValue,
-            troughValue: maxDDTroughValue
-        };
-    }, [filteredData, isComparisonMode]);
 
     const selectionInfo = useMemo(() => {
         if (!refAreaLeft || !refAreaRight) return null;
