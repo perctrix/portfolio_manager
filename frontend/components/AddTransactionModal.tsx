@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface AddTransactionModalProps {
@@ -12,10 +12,35 @@ interface AddTransactionModalProps {
 
 export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: AddTransactionModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [symbol, setSymbol] = useState(initialData?.symbol || '');
-    const [side, setSide] = useState<'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW'>(initialData?.side || 'BUY');
+    const [symbol, setSymbol] = useState('');
+    const [side, setSide] = useState<'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW'>('BUY');
+
+    useEffect(() => {
+        if (isOpen) {
+            if (initialData) {
+                const actualSymbol = (initialData.side === 'DEPOSIT' || initialData.side === 'WITHDRAW') ? '' : (initialData.symbol || '');
+                setSymbol(actualSymbol);
+                setSide(initialData.side || 'BUY');
+            } else {
+                setSymbol('');
+                setSide('BUY');
+            }
+        }
+    }, [initialData, isOpen]);
 
     if (!isOpen) return null;
+
+    const formatDatetimeLocal = (dateStr: string | undefined): string => {
+        if (!dateStr) {
+            return new Date().toISOString().slice(0, 16);
+        }
+        try {
+            const date = new Date(dateStr);
+            return date.toISOString().slice(0, 16);
+        } catch {
+            return new Date().toISOString().slice(0, 16);
+        }
+    };
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -54,7 +79,8 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                             type="datetime-local"
                             name="datetime"
                             required
-                            defaultValue={initialData?.datetime || new Date().toISOString().slice(0, 16)}
+                            key={initialData?.datetime || 'new'}
+                            defaultValue={formatDatetimeLocal(initialData?.datetime)}
                             className="w-full px-3 py-2 border rounded-lg"
                         />
                     </div>
@@ -87,22 +113,54 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                                <input type="number" step="any" name="quantity" required defaultValue={initialData?.quantity} className="w-full px-3 py-2 border rounded-lg" />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    name="quantity"
+                                    required
+                                    key={`quantity-${initialData?.datetime || 'new'}`}
+                                    defaultValue={initialData?.quantity}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                                <input type="number" step="any" name="price" required defaultValue={initialData?.price} className="w-full px-3 py-2 border rounded-lg" />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    name="price"
+                                    required
+                                    key={`price-${initialData?.datetime || 'new'}`}
+                                    defaultValue={initialData?.price}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                />
                             </div>
                         </div>
                     ) : (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                            <input type="number" step="any" name="quantity" required defaultValue={initialData?.quantity} className="w-full px-3 py-2 border rounded-lg" placeholder="10000.00" />
+                            <input
+                                type="number"
+                                step="any"
+                                name="quantity"
+                                required
+                                key={`amount-${initialData?.datetime || 'new'}`}
+                                defaultValue={initialData?.quantity}
+                                className="w-full px-3 py-2 border rounded-lg"
+                                placeholder="10000.00"
+                            />
                         </div>
                     )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Fee</label>
-                        <input type="number" step="any" name="fee" defaultValue={initialData?.fee || "0"} className="w-full px-3 py-2 border rounded-lg" />
+                        <input
+                            type="number"
+                            step="any"
+                            name="fee"
+                            key={`fee-${initialData?.datetime || 'new'}`}
+                            defaultValue={initialData?.fee || "0"}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        />
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
