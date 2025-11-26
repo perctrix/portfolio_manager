@@ -12,6 +12,7 @@ interface AddTransactionModalProps {
 export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactionModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [symbol, setSymbol] = useState('');
+    const [side, setSide] = useState<'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW'>('BUY');
 
     if (!isOpen) return null;
 
@@ -22,10 +23,10 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
 
         const data = {
             datetime: formData.get('datetime'),
-            symbol: symbol,
-            side: formData.get('side'),
+            symbol: side === 'DEPOSIT' || side === 'WITHDRAW' ? 'CASH' : symbol,
+            side: side,
             quantity: Number(formData.get('quantity')),
-            price: Number(formData.get('price')),
+            price: side === 'DEPOSIT' || side === 'WITHDRAW' ? 1 : Number(formData.get('price')),
             fee: Number(formData.get('fee')),
         };
 
@@ -56,7 +57,21 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                             className="w-full px-3 py-2 border rounded-lg"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select
+                            value={side}
+                            onChange={(e) => setSide(e.target.value as any)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
+                            <option value="BUY">BUY</option>
+                            <option value="SELL">SELL</option>
+                            <option value="DEPOSIT">DEPOSIT</option>
+                            <option value="WITHDRAW">WITHDRAW</option>
+                        </select>
+                    </div>
+
+                    {(side === 'BUY' || side === 'SELL') && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
                             <TickerAutocomplete
@@ -66,26 +81,24 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Side</label>
-                            <select name="side" className="w-full px-3 py-2 border rounded-lg">
-                                <option value="BUY">BUY</option>
-                                <option value="SELL">SELL</option>
-                                <option value="DEPOSIT">DEPOSIT</option>
-                                <option value="WITHDRAW">WITHDRAW</option>
-                            </select>
+                    )}
+                    {(side === 'BUY' || side === 'SELL') ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                <input type="number" step="any" name="quantity" required className="w-full px-3 py-2 border rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                                <input type="number" step="any" name="price" required className="w-full px-3 py-2 border rounded-lg" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    ) : (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                            <input type="number" step="any" name="quantity" required className="w-full px-3 py-2 border rounded-lg" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <input type="number" step="any" name="quantity" required className="w-full px-3 py-2 border rounded-lg" placeholder="10000.00" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                            <input type="number" step="any" name="price" required className="w-full px-3 py-2 border rounded-lg" />
-                        </div>
-                    </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Fee</label>
                         <input type="number" step="any" name="fee" defaultValue="0" className="w-full px-3 py-2 border rounded-lg" />
