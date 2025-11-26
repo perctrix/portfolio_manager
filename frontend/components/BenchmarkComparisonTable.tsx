@@ -22,7 +22,7 @@ export function BenchmarkComparisonTable({ comparison }: BenchmarkComparisonTabl
         const isNeutral = Math.abs(value) < 0.001;
 
         return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 justify-end">
                 {!isNeutral && (
                     isPositive ? (
                         <TrendingUp className="w-4 h-4 text-green-600" />
