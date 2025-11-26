@@ -7,11 +7,13 @@ interface AddTransactionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (data: any) => Promise<void>;
+    initialData?: any;
 }
 
-export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactionModalProps) {
+export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: AddTransactionModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [symbol, setSymbol] = useState('');
+    const [symbol, setSymbol] = useState(initialData?.symbol || '');
+    const [side, setSide] = useState<'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW'>(initialData?.side || 'BUY');
 
     if (!isOpen) return null;
 
@@ -22,10 +24,10 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
 
         const data = {
             datetime: formData.get('datetime'),
-            symbol: symbol,
-            side: formData.get('side'),
+            symbol: side === 'DEPOSIT' || side === 'WITHDRAW' ? 'CASH' : symbol,
+            side: side,
             quantity: Number(formData.get('quantity')),
-            price: Number(formData.get('price')),
+            price: side === 'DEPOSIT' || side === 'WITHDRAW' ? 1 : Number(formData.get('price')),
             fee: Number(formData.get('fee')),
         };
 
@@ -44,7 +46,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                <h2 className="text-xl font-bold mb-4">Add Transaction</h2>
+                <h2 className="text-xl font-bold mb-4">{initialData ? 'Edit Transaction' : 'Add Transaction'}</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
@@ -52,11 +54,25 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                             type="datetime-local"
                             name="datetime"
                             required
-                            defaultValue={new Date().toISOString().slice(0, 16)}
+                            defaultValue={initialData?.datetime || new Date().toISOString().slice(0, 16)}
                             className="w-full px-3 py-2 border rounded-lg"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select
+                            value={side}
+                            onChange={(e) => setSide(e.target.value as any)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
+                            <option value="BUY">BUY</option>
+                            <option value="SELL">SELL</option>
+                            <option value="DEPOSIT">DEPOSIT</option>
+                            <option value="WITHDRAW">WITHDRAW</option>
+                        </select>
+                    </div>
+
+                    {(side === 'BUY' || side === 'SELL') && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
                             <TickerAutocomplete
@@ -66,29 +82,27 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Side</label>
-                            <select name="side" className="w-full px-3 py-2 border rounded-lg">
-                                <option value="BUY">BUY</option>
-                                <option value="SELL">SELL</option>
-                                <option value="DEPOSIT">DEPOSIT</option>
-                                <option value="WITHDRAW">WITHDRAW</option>
-                            </select>
+                    )}
+                    {(side === 'BUY' || side === 'SELL') ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                <input type="number" step="any" name="quantity" required defaultValue={initialData?.quantity} className="w-full px-3 py-2 border rounded-lg" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                                <input type="number" step="any" name="price" required defaultValue={initialData?.price} className="w-full px-3 py-2 border rounded-lg" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    ) : (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                            <input type="number" step="any" name="quantity" required className="w-full px-3 py-2 border rounded-lg" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <input type="number" step="any" name="quantity" required defaultValue={initialData?.quantity} className="w-full px-3 py-2 border rounded-lg" placeholder="10000.00" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                            <input type="number" step="any" name="price" required className="w-full px-3 py-2 border rounded-lg" />
-                        </div>
-                    </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Fee</label>
-                        <input type="number" step="any" name="fee" defaultValue="0" className="w-full px-3 py-2 border rounded-lg" />
+                        <input type="number" step="any" name="fee" defaultValue={initialData?.fee || "0"} className="w-full px-3 py-2 border rounded-lg" />
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
@@ -98,7 +112,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit }: AddTransactio
                             disabled={isSubmitting}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Adding...' : 'Add Transaction'}
+                            {isSubmitting ? (initialData ? 'Updating...' : 'Adding...') : (initialData ? 'Update Transaction' : 'Add Transaction')}
                         </button>
                     </div>
                 </form>

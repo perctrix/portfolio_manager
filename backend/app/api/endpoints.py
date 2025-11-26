@@ -62,10 +62,14 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
     try:
         eng = engine.PortfolioEngine(portfolio, data)
         nav = eng.calculate_nav_history()
-        return {
+        result = {
             "nav": [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()],
+            "cash": [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in eng.cash_history.items()],
             "failed_tickers": eng.failed_tickers
         }
+        if eng.suggested_initial_deposit > 0:
+            result["suggested_initial_deposit"] = eng.suggested_initial_deposit
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

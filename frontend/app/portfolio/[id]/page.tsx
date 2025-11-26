@@ -19,7 +19,7 @@ import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
 import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
-import { getPortfolio, deletePortfolio, addTransaction, updatePortfolioData } from '@/lib/storage';
+import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData } from '@/lib/storage';
 import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory, calculateBenchmarkComparison, BenchmarkComparison } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
 
@@ -27,6 +27,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const { id } = use(params);
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
     const [navHistory, setNavHistory] = useState<any[]>([]);
+    const [cashHistory, setCashHistory] = useState<any[]>([]);
     const [indicators, setIndicators] = useState<any>({});
     const [holdings, setHoldings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -44,8 +45,14 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
     const [loadingStep, setLoadingStep] = useState(0);
     const totalLoadingSteps = 5;
+    const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
+    const [showDepositPrompt, setShowDepositPrompt] = useState(false);
+    const [dismissedDepositPrompt, setDismissedDepositPrompt] = useState(false);
+    const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
 
     useEffect(() => {
+        const dismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
+        setDismissedDepositPrompt(dismissed);
         loadData();
     }, [id]);
 
@@ -60,7 +67,15 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             }
 
             setPortfolio(portfolioData.meta);
-            setHoldings(portfolioData.data);
+            // Sort transactions by datetime (most recent first for display)
+            const sortedData = portfolioData.meta?.type === 'transaction'
+                ? [...portfolioData.data].sort((a, b) => {
+                    const dateA = new Date(a.datetime || a.as_of);
+                    const dateB = new Date(b.datetime || b.as_of);
+                    return dateB.getTime() - dateA.getTime(); // Descending order
+                  })
+                : portfolioData.data;
+            setHoldings(sortedData);
             setLoadingStep(1);
 
             if (portfolioData.data.length > 0) {
@@ -72,6 +87,15 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
                 setNavHistory(navResult.nav);
+                setCashHistory(navResult.cash || []);
+
+                const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
+                if (navResult.suggested_initial_deposit &&
+                    navResult.suggested_initial_deposit > 0 &&
+                    !isDismissed) {
+                    setSuggestedDeposit(navResult.suggested_initial_deposit);
+                    setShowDepositPrompt(true);
+                }
 
                 if (navResult.failed_tickers && navResult.failed_tickers.length > 0) {
                     alert(`Warning: The following tickers could not be found:\n${navResult.failed_tickers.join(', ')}\n\nPlease check the symbols and update your portfolio.`);
@@ -116,11 +140,69 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
     async function handleAddTransaction(data: any) {
         try {
-            addTransaction(id, data);
+            if (editingTransactionIndex !== null) {
+                updateTransaction(id, editingTransactionIndex, data);
+                setEditingTransactionIndex(null);
+            } else {
+                addTransaction(id, data);
+            }
             loadData();
         } catch (err) {
             console.error(err);
             throw new Error('Failed to add transaction');
+        }
+    }
+
+    function handleEditTransaction(index: number) {
+        setEditingTransactionIndex(index);
+        setIsAddTxnOpen(true);
+    }
+
+    function handleDeleteTransaction(index: number) {
+        if (confirm('Are you sure you want to delete this transaction?')) {
+            try {
+                deleteTransaction(id, index);
+                loadData();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to delete transaction');
+            }
+        }
+    }
+
+    async function handleAcceptDeposit() {
+        if (!suggestedDeposit || !portfolio) return;
+
+        const earliestDate = holdings.length > 0
+            ? holdings.reduce((earliest, h) => {
+                const hDate = new Date(h.datetime || h.as_of);
+                return hDate < earliest ? hDate : earliest;
+            }, new Date(holdings[0].datetime || holdings[0].as_of))
+            : new Date();
+
+        // Set to first day of the month at 00:00
+        const firstDayOfMonth = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+        firstDayOfMonth.setHours(0, 0, 0, 0);
+
+        const depositTxn = {
+            datetime: firstDayOfMonth.toISOString().slice(0, 16),
+            symbol: 'CASH',
+            side: 'DEPOSIT',
+            quantity: suggestedDeposit,
+            price: 1,
+            fee: 0
+        };
+
+        try {
+            addTransaction(id, depositTxn);
+            setShowDepositPrompt(false);
+            setSuggestedDeposit(null);
+            localStorage.setItem(`dismissed-deposit-${id}`, 'true');
+            setDismissedDepositPrompt(true);
+            loadData();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to add deposit transaction');
         }
     }
 
@@ -418,7 +500,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             <span className="text-xs text-gray-500">Normalized to 0% at start</span>
                         )}
                     </div>
-                    <NavChart data={navHistory} comparisonData={comparisonData} benchmarkData={benchmarkData} />
+                    <NavChart data={navHistory} cashData={cashHistory} comparisonData={comparisonData} benchmarkData={benchmarkData} />
                 </div>
 
                 <BenchmarkPanel
@@ -445,6 +527,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                             <th className="px-6 py-3 text-right">Qty</th>
                                             <th className="px-6 py-3 text-right">Price</th>
                                             <th className="px-6 py-3 text-right">Fee</th>
+                                            <th className="px-6 py-3 text-center">Actions</th>
                                         </>
                                     ) : (
                                         <>
@@ -465,7 +548,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                     </tr>
                                 ) : (
                                     holdings.map((row, i) => (
-                                        <tr key={i} className="hover:bg-gray-50">
+                                        <tr key={`${row.datetime || row.as_of}-${row.symbol}-${i}`} className="hover:bg-gray-50">
                                             <td className="px-6 py-3">
                                                 {row.symbol && row.symbol !== 'CASH' && (
                                                     <button
@@ -491,6 +574,26 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                                     <td className="px-6 py-3 text-right">{row.quantity}</td>
                                                     <td className="px-6 py-3 text-right">{row.price}</td>
                                                     <td className="px-6 py-3 text-right">{row.fee}</td>
+                                                    <td className="px-6 py-3">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => handleEditTransaction(i)}
+                                                                className="p-1 rounded hover:bg-blue-100 text-blue-600"
+                                                                title="Edit transaction"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteTransaction(i)}
+                                                                className="p-1 rounded hover:bg-red-100 text-red-600"
+                                                                title="Delete transaction"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </>
                                             ) : (
                                                 <>
@@ -674,8 +777,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             <AddTransactionModal
                 isOpen={isAddTxnOpen}
-                onClose={() => setIsAddTxnOpen(false)}
+                onClose={() => {
+                    setIsAddTxnOpen(false);
+                    setEditingTransactionIndex(null);
+                }}
                 onSubmit={handleAddTransaction}
+                initialData={editingTransactionIndex !== null ? holdings[editingTransactionIndex] : undefined}
             />
 
             <EditSnapshotModal
@@ -684,6 +791,43 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 onSubmit={handleUpdateSnapshot}
                 initialData={holdings}
             />
+
+            {showDepositPrompt && suggestedDeposit && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-xl max-w-md">
+                        <h3 className="text-lg font-semibold mb-3">Missing Initial Deposit</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            This portfolio has no initial deposit transaction. Based on your trading history,
+                            we suggest an initial deposit of <strong>${suggestedDeposit.toLocaleString()}</strong>
+                            to ensure accurate performance calculations.
+                        </p>
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleAcceptDeposit}
+                                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                            >
+                                Add Suggested Deposit (${suggestedDeposit.toLocaleString()})
+                            </button>
+                            <button
+                                onClick={() => setIsAddTxnOpen(true)}
+                                className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
+                            >
+                                Manually Enter Deposit Amount
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowDepositPrompt(false);
+                                    setDismissedDepositPrompt(true);
+                                    localStorage.setItem(`dismissed-deposit-${id}`, 'true');
+                                }}
+                                className="w-full text-gray-500 text-sm hover:text-gray-700"
+                            >
+                                Dismiss (don't show again)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

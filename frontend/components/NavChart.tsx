@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface NavChartProps {
     data: { date: string; value: number }[];
+    cashData?: { date: string; value: number }[];
     comparisonData?: { [symbol: string]: { date: string; value: number }[] };
     benchmarkData?: { [symbol: string]: { date: string; value: number }[] };
 }
@@ -30,7 +31,7 @@ const BENCHMARK_COLORS = [
     '#14532d',
 ];
 
-export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavChartProps) {
+export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkData = {} }: NavChartProps) {
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -40,6 +41,7 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
     const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
     const [customStartDate, setCustomStartDate] = useState<string>('');
     const [customEndDate, setCustomEndDate] = useState<string>('');
+    const [showCash, setShowCash] = useState(false);
 
     if (!data || data.length === 0) {
         return (
@@ -168,8 +170,27 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
     const chartData: ChartPoint[] = useMemo(() => {
         const sourceData = sampledData;
 
+        // Add cash data if available and enabled
+        let dataWithCash = sourceData;
+        if (showCash && cashData.length > 0 && !isComparisonMode) {
+            const cashMap = new Map<string, number>();
+            cashData.forEach((c: any) => {
+                const normalizedDate = c.date.substring(0, 10);
+                cashMap.set(normalizedDate, c.value);
+            });
+
+            dataWithCash = sourceData.map(d => {
+                const normalizedDate = d.date.substring(0, 10);
+                const cashValue = cashMap.get(normalizedDate);
+                if (cashValue !== undefined) {
+                    return { ...d, cash: cashValue };
+                }
+                return d;
+            });
+        }
+
         if (!isComparisonMode) {
-            return sourceData;
+            return dataWithCash;
         }
 
         const baseValue = sourceData[0]?.value || 1;
@@ -235,7 +256,7 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
 
             return point;
         });
-    }, [sampledData, comparisonData, benchmarkData, isComparisonMode]);
+    }, [sampledData, comparisonData, benchmarkData, isComparisonMode, showCash, cashData]);
 
     const formatValue = (val: number): string => {
         if (isComparisonMode) return `${val.toFixed(2)}%`;
@@ -324,6 +345,20 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
                         </button>
                     ))}
                 </div>
+
+                {!isComparisonMode && cashData.length > 0 && (
+                    <button
+                        onClick={() => setShowCash(!showCash)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                            showCash
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        title="Toggle cash display"
+                    >
+                        {showCash ? 'Hide Cash' : 'Show Cash'}
+                    </button>
+                )}
 
                 {timeRange === 'CUSTOM' && (
                     <div className="flex items-center gap-2 ml-4">
@@ -432,6 +467,19 @@ export function NavChart({ data, comparisonData = {}, benchmarkData = {} }: NavC
                         dot={false}
                         activeDot={{ r: 6 }}
                     />
+
+                    {showCash && !isComparisonMode && (
+                        <Line
+                            type="monotone"
+                            dataKey="cash"
+                            name="Cash"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={false}
+                            activeDot={{ r: 6 }}
+                        />
+                    )}
 
                     {Object.keys(comparisonData).map((sym, idx) => (
                         <Line
