@@ -1,5 +1,4 @@
 from curl_cffi import requests
-import json
 
 
 def get_ticker_info(symbol: str) -> dict:
