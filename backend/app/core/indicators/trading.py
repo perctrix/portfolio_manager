@@ -194,6 +194,73 @@ def calculate_consecutive_losing_trades(transactions: pd.DataFrame) -> int:
 
     return int(max_consecutive)
 
+def calculate_profit_factor(transactions: pd.DataFrame) -> float:
+    """Calculate Profit Factor = gross_profit / abs(gross_loss)
+
+    Args:
+        transactions: Transaction DataFrame
+
+    Returns:
+        Profit factor (>1 indicates profitable strategy, >1.5 is good, >2.5 is excellent)
+    """
+    trades_df = calculate_trade_pnl(transactions)
+
+    if trades_df.empty:
+        return 0.0
+
+    gross_profit = trades_df[trades_df['pnl'] > 0]['pnl'].sum()
+    gross_loss = abs(trades_df[trades_df['pnl'] < 0]['pnl'].sum())
+
+    if gross_loss == 0:
+        return float('inf') if gross_profit > 0 else 0.0
+
+    profit_factor = gross_profit / gross_loss
+    return float(profit_factor)
+
+def calculate_recovery_factor(nav_history: pd.Series) -> float:
+    """Calculate Recovery Factor = net_profit / abs(max_drawdown)
+
+    Args:
+        nav_history: NAV time series
+
+    Returns:
+        Recovery factor (higher is better, measures ability to recover from losses)
+    """
+    if nav_history.empty or len(nav_history) < 2:
+        return 0.0
+
+    from .drawdown import calculate_max_drawdown
+
+    net_profit = (nav_history.iloc[-1] / nav_history.iloc[0]) - 1
+    max_dd = abs(calculate_max_drawdown(nav_history))
+
+    if max_dd == 0:
+        return float('inf') if net_profit > 0 else 0.0
+
+    recovery = net_profit / max_dd
+    return float(recovery)
+
+def calculate_kelly_criterion(win_rate: float, profit_loss_ratio: float) -> float:
+    """Calculate Kelly Criterion for optimal position sizing
+
+    Formula: f* = (bp - q) / b
+    where b = profit/loss ratio, p = win rate, q = loss rate
+
+    Args:
+        win_rate: Win rate as decimal (e.g., 0.6 for 60%)
+        profit_loss_ratio: Average win / average loss
+
+    Returns:
+        Kelly percentage (fraction of capital to risk, should be used conservatively)
+    """
+    if win_rate <= 0 or win_rate >= 1 or profit_loss_ratio <= 0:
+        return 0.0
+
+    loss_rate = 1 - win_rate
+    kelly = (profit_loss_ratio * win_rate - loss_rate) / profit_loss_ratio
+
+    return float(max(0.0, kelly))
+
 def calculate_all_trading_metrics(transactions: pd.DataFrame, nav_history: pd.Series) -> Dict[str, float]:
     """Calculate all trading behavior metrics at once"""
     if transactions is None or transactions.empty:
@@ -203,20 +270,29 @@ def calculate_all_trading_metrics(transactions: pd.DataFrame, nav_history: pd.Se
             'avg_holding_period': 0.0,
             'win_rate': 0.0,
             'profit_loss_ratio': 0.0,
+            'profit_factor': 0.0,
             'max_trade_profit': 0.0,
             'max_trade_loss': 0.0,
             'consecutive_winning_trades': 0,
-            'consecutive_losing_trades': 0
+            'consecutive_losing_trades': 0,
+            'recovery_factor': calculate_recovery_factor(nav_history) if not nav_history.empty else 0.0,
+            'kelly_criterion': 0.0
         }
+
+    win_rate = calculate_win_rate(transactions)
+    pl_ratio = calculate_profit_loss_ratio(transactions)
 
     return {
         'trade_count': calculate_trade_count(transactions),
         'turnover_rate': calculate_turnover_rate(transactions, nav_history),
         'avg_holding_period': calculate_avg_holding_period(transactions),
-        'win_rate': calculate_win_rate(transactions),
-        'profit_loss_ratio': calculate_profit_loss_ratio(transactions),
+        'win_rate': win_rate,
+        'profit_loss_ratio': pl_ratio,
+        'profit_factor': calculate_profit_factor(transactions),
         'max_trade_profit': calculate_max_trade_profit(transactions),
         'max_trade_loss': calculate_max_trade_loss(transactions),
         'consecutive_winning_trades': calculate_consecutive_winning_trades(transactions),
-        'consecutive_losing_trades': calculate_consecutive_losing_trades(transactions)
+        'consecutive_losing_trades': calculate_consecutive_losing_trades(transactions),
+        'recovery_factor': calculate_recovery_factor(nav_history),
+        'kelly_criterion': calculate_kelly_criterion(win_rate, pl_ratio)
     }

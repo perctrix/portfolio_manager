@@ -37,14 +37,20 @@ from .drawdown import (
     calculate_max_daily_loss,
     calculate_max_daily_gain,
     calculate_consecutive_loss_days,
-    calculate_consecutive_gain_days
+    calculate_consecutive_gain_days,
+    calculate_ulcer_index
 )
 
 from .ratios import (
     calculate_sharpe_ratio,
     calculate_rolling_sharpe,
     calculate_sortino_ratio,
-    calculate_calmar_ratio
+    calculate_calmar_ratio,
+    calculate_treynor_ratio,
+    calculate_omega_ratio,
+    calculate_m2_measure,
+    calculate_gain_to_pain_ratio,
+    calculate_ulcer_performance_index
 )
 
 from .allocation import (
@@ -74,7 +80,10 @@ from .trading import (
     calculate_max_trade_loss,
     calculate_consecutive_winning_trades,
     calculate_consecutive_losing_trades,
-    calculate_all_trading_metrics
+    calculate_all_trading_metrics,
+    calculate_profit_factor,
+    calculate_recovery_factor,
+    calculate_kelly_criterion
 )
 
 from .technical import (
@@ -107,7 +116,8 @@ from .tail_risk import (
     calculate_var,
     calculate_cvar,
     calculate_skewness,
-    calculate_kurtosis
+    calculate_kurtosis,
+    calculate_tail_ratio
 )
 
 from .correlation_beta import (
@@ -122,7 +132,9 @@ from .correlation_beta import (
     calculate_all_benchmark_metrics,
     calculate_multi_benchmark_metrics,
     calculate_mean_pairwise_correlation,
-    calculate_max_min_correlation
+    calculate_max_min_correlation,
+    calculate_upside_capture,
+    calculate_downside_capture
 )
 
 from .aggregator import (
@@ -215,10 +227,16 @@ __all__ = [
     'calculate_max_daily_gain',
     'calculate_consecutive_loss_days',
     'calculate_consecutive_gain_days',
+    'calculate_ulcer_index',
     'calculate_sharpe_ratio',
     'calculate_rolling_sharpe',
     'calculate_sortino_ratio',
     'calculate_calmar_ratio',
+    'calculate_treynor_ratio',
+    'calculate_omega_ratio',
+    'calculate_m2_measure',
+    'calculate_gain_to_pain_ratio',
+    'calculate_ulcer_performance_index',
     'calculate_weights',
     'calculate_weight_history',
     'calculate_top_n_concentration',
@@ -243,6 +261,9 @@ __all__ = [
     'calculate_consecutive_winning_trades',
     'calculate_consecutive_losing_trades',
     'calculate_all_trading_metrics',
+    'calculate_profit_factor',
+    'calculate_recovery_factor',
+    'calculate_kelly_criterion',
     'calculate_sma',
     'calculate_ema',
     'calculate_wma',
@@ -270,6 +291,7 @@ __all__ = [
     'calculate_cvar',
     'calculate_skewness',
     'calculate_kurtosis',
+    'calculate_tail_ratio',
     'calculate_correlation_to_portfolio',
     'calculate_correlation_matrix',
     'calculate_covariance_matrix',
@@ -282,6 +304,8 @@ __all__ = [
     'calculate_multi_benchmark_metrics',
     'calculate_mean_pairwise_correlation',
     'calculate_max_min_correlation',
+    'calculate_upside_capture',
+    'calculate_downside_capture',
     'calculate_all_portfolio_indicators',
     'calculate_basic_portfolio_indicators',
     'calculate_basic_metrics',

@@ -235,16 +235,28 @@ def calculate_all_benchmark_metrics(portfolio_returns: pd.Series, benchmark_retu
             'r_squared': 0.0,
             'correlation': 0.0,
             'tracking_error': 0.0,
-            'information_ratio': 0.0
+            'information_ratio': 0.0,
+            'upside_capture': 0.0,
+            'downside_capture': 0.0,
+            'treynor_ratio': 0.0,
+            'm2_measure': 0.0
         }
 
+    from .ratios import calculate_treynor_ratio, calculate_m2_measure
+
+    beta = calculate_beta(portfolio_returns, benchmark_returns)
+
     return {
-        'beta': calculate_beta(portfolio_returns, benchmark_returns),
+        'beta': beta,
         'alpha': calculate_alpha(portfolio_returns, benchmark_returns, risk_free_rate),
         'r_squared': calculate_r_squared(portfolio_returns, benchmark_returns),
         'correlation': calculate_correlation_to_portfolio(portfolio_returns, benchmark_returns),
         'tracking_error': calculate_tracking_error(portfolio_returns, benchmark_returns),
-        'information_ratio': calculate_information_ratio(portfolio_returns, benchmark_returns)
+        'information_ratio': calculate_information_ratio(portfolio_returns, benchmark_returns),
+        'upside_capture': calculate_upside_capture(portfolio_returns, benchmark_returns),
+        'downside_capture': calculate_downside_capture(portfolio_returns, benchmark_returns),
+        'treynor_ratio': calculate_treynor_ratio(portfolio_returns, beta, risk_free_rate),
+        'm2_measure': calculate_m2_measure(portfolio_returns, benchmark_returns, risk_free_rate)
     }
 
 
@@ -317,3 +329,69 @@ def calculate_max_min_correlation(returns_df: pd.DataFrame) -> Tuple[float, floa
         return 0.0, 0.0
 
     return float(np.max(correlations)), float(np.min(correlations))
+
+
+def calculate_upside_capture(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> float:
+    """Calculate Upside Capture Ratio
+
+    Measures portfolio's average return when benchmark is positive
+    relative to benchmark's average positive return.
+    Value > 100 indicates outperformance in up markets.
+
+    Args:
+        portfolio_returns: Daily returns of portfolio
+        benchmark_returns: Daily returns of benchmark
+
+    Returns:
+        Upside capture ratio as percentage (>100 is good)
+    """
+    if portfolio_returns.empty or benchmark_returns.empty:
+        return 0.0
+
+    aligned_portfolio, aligned_benchmark = portfolio_returns.align(benchmark_returns, join='inner')
+
+    if len(aligned_portfolio) < 2:
+        return 0.0
+
+    up_market = aligned_benchmark > 0
+    portfolio_up_returns = aligned_portfolio[up_market]
+    benchmark_up_returns = aligned_benchmark[up_market]
+
+    if len(benchmark_up_returns) == 0 or benchmark_up_returns.mean() == 0:
+        return 0.0
+
+    upside_capture = (portfolio_up_returns.mean() / benchmark_up_returns.mean()) * 100
+    return float(upside_capture)
+
+
+def calculate_downside_capture(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> float:
+    """Calculate Downside Capture Ratio
+
+    Measures portfolio's average return when benchmark is negative
+    relative to benchmark's average negative return.
+    Value < 100 indicates outperformance in down markets (less loss).
+
+    Args:
+        portfolio_returns: Daily returns of portfolio
+        benchmark_returns: Daily returns of benchmark
+
+    Returns:
+        Downside capture ratio as percentage (<100 is good)
+    """
+    if portfolio_returns.empty or benchmark_returns.empty:
+        return 0.0
+
+    aligned_portfolio, aligned_benchmark = portfolio_returns.align(benchmark_returns, join='inner')
+
+    if len(aligned_portfolio) < 2:
+        return 0.0
+
+    down_market = aligned_benchmark < 0
+    portfolio_down_returns = aligned_portfolio[down_market]
+    benchmark_down_returns = aligned_benchmark[down_market]
+
+    if len(benchmark_down_returns) == 0 or benchmark_down_returns.mean() == 0:
+        return 0.0
+
+    downside_capture = (portfolio_down_returns.mean() / benchmark_down_returns.mean()) * 100
+    return float(downside_capture)

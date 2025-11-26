@@ -152,3 +152,22 @@ def calculate_consecutive_gain_days(returns: pd.Series) -> int:
             consecutive = 0
 
     return int(max_consecutive)
+
+def calculate_ulcer_index(nav: pd.Series, window: int = 14) -> float:
+    """Calculate Ulcer Index - measures downside risk considering depth and duration
+
+    Args:
+        nav: NAV time series
+        window: Lookback period in days (default 14)
+
+    Returns:
+        Ulcer Index (lower is better, measures downside volatility)
+    """
+    if nav.empty or len(nav) < window:
+        return 0.0
+
+    drawdown_pct = calculate_drawdown_series(nav) * 100
+    squared_drawdowns = drawdown_pct ** 2
+    ulcer = np.sqrt(squared_drawdowns.rolling(window=window).mean().iloc[-1])
+
+    return float(ulcer) if not np.isnan(ulcer) else 0.0

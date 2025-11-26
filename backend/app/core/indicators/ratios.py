@@ -65,3 +65,121 @@ def calculate_calmar_ratio(nav: pd.Series, returns: pd.Series) -> float:
 
     calmar = annual_return / abs(max_dd)
     return float(calmar)
+
+def calculate_treynor_ratio(returns: pd.Series, beta: float, risk_free_rate: float = 0.0) -> float:
+    """Calculate Treynor Ratio = (annual_return - rf) / beta
+
+    Args:
+        returns: Daily returns series
+        beta: Portfolio beta relative to benchmark
+        risk_free_rate: Annual risk-free rate
+
+    Returns:
+        Treynor ratio (excess return per unit of systematic risk)
+    """
+    if returns.empty or beta == 0:
+        return 0.0
+
+    annual_return = calculate_annualized_return(returns)
+    treynor = (annual_return - risk_free_rate) / beta
+    return float(treynor)
+
+def calculate_omega_ratio(returns: pd.Series, threshold: float = 0.0) -> float:
+    """Calculate Omega Ratio = probability weighted gains / probability weighted losses
+
+    Args:
+        returns: Daily returns series
+        threshold: Minimum acceptable return (default 0.0)
+
+    Returns:
+        Omega ratio (>1 indicates good risk-adjusted performance)
+    """
+    if returns.empty:
+        return 0.0
+
+    excess_returns = returns - threshold
+    gains = excess_returns[excess_returns > 0].sum()
+    losses = -excess_returns[excess_returns < 0].sum()
+
+    if losses == 0:
+        return float('inf') if gains > 0 else 0.0
+
+    omega = gains / losses
+    return float(omega)
+
+def calculate_m2_measure(returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+    """Calculate M2 Measure (Modigliani-Modigliani measure)
+
+    Returns the portfolio's risk-adjusted return scaled to match benchmark volatility,
+    expressed as a percentage difference from the benchmark.
+
+    Args:
+        returns: Portfolio daily returns
+        benchmark_returns: Benchmark daily returns
+        risk_free_rate: Annual risk-free rate
+
+    Returns:
+        M2 measure in percentage points
+    """
+    if returns.empty or benchmark_returns.empty:
+        return 0.0
+
+    portfolio_return = calculate_annualized_return(returns)
+    portfolio_vol = calculate_annualized_volatility(returns)
+    benchmark_vol = calculate_annualized_volatility(benchmark_returns)
+    benchmark_return = calculate_annualized_return(benchmark_returns)
+
+    if portfolio_vol == 0:
+        return 0.0
+
+    sharpe = (portfolio_return - risk_free_rate) / portfolio_vol
+    m2 = risk_free_rate + sharpe * benchmark_vol - benchmark_return
+
+    return float(m2)
+
+def calculate_gain_to_pain_ratio(returns: pd.Series) -> float:
+    """Calculate Gain-to-Pain Ratio = sum(positive returns) / abs(sum(negative returns))
+
+    Args:
+        returns: Daily returns series
+
+    Returns:
+        Gain-to-pain ratio (higher is better)
+    """
+    if returns.empty:
+        return 0.0
+
+    gains = returns[returns > 0].sum()
+    pains = abs(returns[returns < 0].sum())
+
+    if pains == 0:
+        return float('inf') if gains > 0 else 0.0
+
+    ratio = gains / pains
+    return float(ratio)
+
+def calculate_ulcer_performance_index(nav: pd.Series, returns: pd.Series, risk_free_rate: float = 0.0, window: int = 14) -> float:
+    """Calculate Ulcer Performance Index = (return - rf) / Ulcer Index
+
+    Args:
+        nav: NAV time series
+        returns: Daily returns series
+        risk_free_rate: Annual risk-free rate
+        window: Lookback period for Ulcer Index (default 14)
+
+    Returns:
+        Ulcer Performance Index (higher is better)
+    """
+    if returns.empty or nav.empty:
+        return 0.0
+
+    from .drawdown import calculate_ulcer_index
+
+    annual_return = calculate_annualized_return(returns)
+    ulcer = calculate_ulcer_index(nav, window=window)
+
+    if ulcer == 0:
+        return 0.0
+
+    upi = (annual_return - risk_free_rate) / ulcer
+    return float(upi)
