@@ -67,7 +67,15 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             }
 
             setPortfolio(portfolioData.meta);
-            setHoldings(portfolioData.data);
+            // Sort transactions by datetime (most recent first for display)
+            const sortedData = portfolioData.type === 'transaction'
+                ? [...portfolioData.data].sort((a, b) => {
+                    const dateA = new Date(a.datetime || a.as_of);
+                    const dateB = new Date(b.datetime || b.as_of);
+                    return dateB.getTime() - dateA.getTime(); // Descending order
+                  })
+                : portfolioData.data;
+            setHoldings(sortedData);
             setLoadingStep(1);
 
             if (portfolioData.data.length > 0) {
@@ -172,8 +180,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             }, new Date(holdings[0].datetime || holdings[0].as_of))
             : new Date();
 
+        // Set to first day of the month at 00:00
+        const firstDayOfMonth = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+        firstDayOfMonth.setHours(0, 0, 0, 0);
+
         const depositTxn = {
-            datetime: earliestDate.toISOString().slice(0, 16),
+            datetime: firstDayOfMonth.toISOString().slice(0, 16),
             symbol: 'CASH',
             side: 'DEPOSIT',
             quantity: suggestedDeposit,
