@@ -46,8 +46,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const totalLoadingSteps = 5;
     const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
     const [showDepositPrompt, setShowDepositPrompt] = useState(false);
+    const [dismissedDepositPrompt, setDismissedDepositPrompt] = useState(false);
 
     useEffect(() => {
+        const dismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
+        setDismissedDepositPrompt(dismissed);
         loadData();
     }, [id]);
 
@@ -75,7 +78,9 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
                 setNavHistory(navResult.nav);
 
-                if (navResult.suggested_initial_deposit && navResult.suggested_initial_deposit > 0) {
+                if (navResult.suggested_initial_deposit &&
+                    navResult.suggested_initial_deposit > 0 &&
+                    !dismissedDepositPrompt) {
                     setSuggestedDeposit(navResult.suggested_initial_deposit);
                     setShowDepositPrompt(true);
                 }
@@ -154,6 +159,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             addTransaction(id, depositTxn);
             setShowDepositPrompt(false);
             setSuggestedDeposit(null);
+            localStorage.removeItem(`dismissed-deposit-${id}`);
+            setDismissedDepositPrompt(false);
             loadData();
         } catch (err) {
             console.error(err);
@@ -745,10 +752,14 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                 Manually Enter Deposit Amount
                             </button>
                             <button
-                                onClick={() => setShowDepositPrompt(false)}
+                                onClick={() => {
+                                    setShowDepositPrompt(false);
+                                    setDismissedDepositPrompt(true);
+                                    localStorage.setItem(`dismissed-deposit-${id}`, 'true');
+                                }}
                                 className="w-full text-gray-500 text-sm hover:text-gray-700"
                             >
-                                Dismiss (calculations may be inaccurate)
+                                Dismiss (don't show again)
                             </button>
                         </div>
                     </div>
