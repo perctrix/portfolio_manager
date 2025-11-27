@@ -248,8 +248,8 @@ async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]
             benchmark_data = {}
 
             try:
-                benchmarks_config = benchmark_loader.load_benchmark_config()
-                for bm in benchmarks_config.get('benchmarks', [])[:5]:
+                benchmarks_list = benchmark_loader.get_available_benchmarks()
+                for bm in benchmarks_list[:5]:
                     sym = bm['symbol']
                     df = prices.get_price_history(sym)
                     if not df.empty:
