@@ -339,7 +339,7 @@ async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]
 
         except Exception as e:
             logger.error(f"Stream error: {e}")
-            error_data = {"error": str(e)}
+            error_data = {"error": "Internal server error"}
             yield f"event: error\n"
             yield f"data: {json.dumps(error_data)}\n\n"
 
