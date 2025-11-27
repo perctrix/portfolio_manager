@@ -110,6 +110,10 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - Ticker validation with rate limiting
 - Local CSV storage for price history
 
+### Internationalization (i18n)
+- Multi-language support for the user interface.
+- Currently available in English and Chinese (简体中文).
+
 ## Architecture
 
 - **Backend**: Python (FastAPI) with pandas, numpy, scipy, TA-Lib

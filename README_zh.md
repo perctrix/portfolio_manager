@@ -110,6 +110,10 @@
 - 带速率限制的股票代码验证
 - 本地CSV存储价格历史
 
+### 国际化 (i18n)
+- 提供多语言用户界面支持。
+- 目前支持英语 (English) 和中文 (简体中文)。
+
 ## 架构
 
 - **后端**：Python (FastAPI) 配合 pandas、numpy、scipy、TA-Lib
