@@ -121,6 +121,86 @@
 - **存储**：本地CSV/JSON文件（无需数据库）
 - **调度器**：APScheduler用于自动化基准更新
 
+### SSE流式传输与并行I/O
+
+`/api/calculate/portfolio-full` 端点使用Server-Sent Events (SSE)，结合优化的并行I/O和请求级缓存，实现最佳性能。
+
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant API as FastAPI端点
+    participant Cache as 请求缓存
+    participant Yahoo as Yahoo Finance API
+    participant Engine as PortfolioEngine
+
+    Client->>API: POST /calculate/portfolio-full
+
+    rect rgb(230, 245, 255)
+        Note over API,Yahoo: 阶段1: 并行I/O
+        par 加载组合价格
+            API->>Yahoo: get_price_history(AAPL)
+            API->>Yahoo: get_price_history(MSFT)
+            API->>Yahoo: get_price_history(...)
+        and 加载基准价格
+            API->>Yahoo: get_price_history(^GSPC)
+            API->>Yahoo: get_price_history(^DJI)
+            API->>Yahoo: get_price_history(...)
+        end
+        Yahoo-->>API: 价格DataFrames
+    end
+
+    API->>Cache: 存储price_cache
+    API-->>Client: SSE: prices_loaded
+
+    rect rgb(255, 245, 230)
+        Note over API,Engine: 阶段2: NAV计算
+        API->>Engine: PortfolioEngine(portfolio, data)
+        API->>Engine: set_price_cache(cache)
+        Engine->>Cache: 使用缓存价格
+        Engine-->>API: NAV历史
+    end
+
+    API-->>Client: SSE: nav_calculated
+
+    rect rgb(230, 255, 230)
+        Note over API,Engine: 阶段3: 并行计算
+        par 基本指标
+            API->>Engine: get_indicators()
+            Engine->>Cache: 使用_base_data_cache
+        and 基准比较
+            API->>Cache: load_benchmark_returns_from_cache()
+        end
+        Engine-->>API: 结果
+    end
+
+    API-->>Client: SSE: indicators_basic_calculated
+    API-->>Client: SSE: benchmark_comparison_calculated
+
+    rect rgb(245, 230, 255)
+        Note over API,Engine: 阶段4: 全部指标
+        API->>Engine: get_all_indicators()
+        Engine->>Cache: 复用_base_data_cache
+        Engine-->>API: 79个指标
+    end
+
+    API-->>Client: SSE: indicators_all_calculated
+    API-->>Client: SSE: complete
+```
+
+**关键优化：**
+
+| 优化项 | 优化前 | 优化后 | 提升 |
+|-------|--------|--------|------|
+| 价格加载 | 串行 (N * T) | 并行 (T) | ~N倍 |
+| NAV计算 | 重复3次 | 缓存1次 | 3倍 |
+| 价格获取 | 多次调用 | 请求级缓存 | 2-3倍 |
+| 基本指标+基准 | 串行 | 并行 | ~2倍 |
+
+**缓存策略：**
+- `_price_cache`：存储价格DataFrames，从并行加载注入或按需填充
+- `_nav_cache`：缓存NAV Series，避免重复计算
+- `_base_data_cache`：缓存共享数据（收益率、持仓、权重、价格历史）供指标方法使用
+
 ## 设置
 
 ### 后端
@@ -152,6 +232,7 @@
 ## API端点
 
 ### 投资组合分析
+- `POST /api/calculate/portfolio-full` - **SSE流式端点**，支持并行I/O（推荐）
 - `POST /api/calculate/nav` - 计算净值历史
 - `POST /api/calculate/indicators` - 计算绩效指标（旧版）
 - `POST /api/calculate/indicators/all` - 计算全部79个指标
