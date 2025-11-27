@@ -19,7 +19,7 @@ import IndicatorGrid from '@/components/IndicatorGrid';
 import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
 import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
-import { Eye, EyeOff, Download, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Download, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData } from '@/lib/storage';
 import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory, calculateBenchmarkComparison, BenchmarkComparison } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
@@ -47,7 +47,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [loadingBenchmarkComparison, setLoadingBenchmarkComparison] = useState(false);
     const [selectedBetaBenchmark, setSelectedBetaBenchmark] = useState<string>('^GSPC');
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns']));
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'positions', 'benchmarkComparison']));
     const [loadingStep, setLoadingStep] = useState(0);
     const totalLoadingSteps = 5;
     const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
@@ -522,106 +522,118 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 />
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-6 border-b border-gray-100">
+                    <button
+                        onClick={() => toggleSection('positions')}
+                        className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
+                    >
                         <h2 className="text-lg font-semibold">
                             {portfolio.type === 'transaction' ? t('transactionHistory') : t('currentPositions')}
                         </h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-medium">
-                                <tr>
-                                    <th className="px-6 py-3 w-10"></th>
-                                    {portfolio.type === 'transaction' ? (
-                                        <>
-                                            <th className="px-6 py-3">{t('date')}</th>
-                                            <th className="px-6 py-3">{t('symbol')}</th>
-                                            <th className="px-6 py-3">{t('side')}</th>
-                                            <th className="px-6 py-3 text-right">{t('qty')}</th>
-                                            <th className="px-6 py-3 text-right">{t('price')}</th>
-                                            <th className="px-6 py-3 text-right">{t('fee')}</th>
-                                            <th className="px-6 py-3 text-center">{t('actions')}</th>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <th className="px-6 py-3">{t('symbol')}</th>
-                                            <th className="px-6 py-3 text-right">{t('quantity')}</th>
-                                            <th className="px-6 py-3 text-right">{t('costBasis')}</th>
-                                            <th className="px-6 py-3">{t('asOf')}</th>
-                                        </>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {holdings.length === 0 ? (
+                        <div className="text-gray-400">
+                            {expandedSections.has('positions') ? (
+                                <ChevronUp className="w-5 h-5" />
+                            ) : (
+                                <ChevronDown className="w-5 h-5" />
+                            )}
+                        </div>
+                    </button>
+                    {expandedSections.has('positions') && (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-500 font-medium">
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                                            {t('noDataAvailable')}
-                                        </td>
+                                        <th className="px-6 py-3 w-10"></th>
+                                        {portfolio.type === 'transaction' ? (
+                                            <>
+                                                <th className="px-6 py-3">{t('date')}</th>
+                                                <th className="px-6 py-3">{t('symbol')}</th>
+                                                <th className="px-6 py-3">{t('side')}</th>
+                                                <th className="px-6 py-3 text-right">{t('qty')}</th>
+                                                <th className="px-6 py-3 text-right">{t('price')}</th>
+                                                <th className="px-6 py-3 text-right">{t('fee')}</th>
+                                                <th className="px-6 py-3 text-center">{t('actions')}</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th className="px-6 py-3">{t('symbol')}</th>
+                                                <th className="px-6 py-3 text-right">{t('quantity')}</th>
+                                                <th className="px-6 py-3 text-right">{t('costBasis')}</th>
+                                                <th className="px-6 py-3">{t('asOf')}</th>
+                                            </>
+                                        )}
                                     </tr>
-                                ) : (
-                                    holdings.map((row, i) => (
-                                        <tr key={`${row.datetime || row.as_of}-${row.symbol}-${i}`} className="hover:bg-gray-50">
-                                            <td className="px-6 py-3">
-                                                {row.symbol && row.symbol !== 'CASH' && (
-                                                    <button
-                                                        onClick={() => toggleTicker(row.symbol)}
-                                                        className={`p-1 rounded hover:bg-gray-200 ${selectedTickers.has(row.symbol) ? 'text-blue-600' : 'text-gray-400'}`}
-                                                        title={t('toggleOnChart')}
-                                                    >
-                                                        {selectedTickers.has(row.symbol) ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                    </button>
-                                                )}
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {holdings.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                                                {t('noDataAvailable')}
                                             </td>
-                                            {portfolio.type === 'transaction' ? (
-                                                <>
-                                                    <td className="px-6 py-3">{new Date(row.datetime).toLocaleDateString()}</td>
-                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
-                                                    <td className="px-6 py-3">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.side === 'BUY' ? 'bg-green-100 text-green-800' :
-                                                            row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                                                            }`}>
-                                                            {row.side}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
-                                                    <td className="px-6 py-3 text-right">{row.price}</td>
-                                                    <td className="px-6 py-3 text-right">{row.fee}</td>
-                                                    <td className="px-6 py-3">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <button
-                                                                onClick={() => handleEditTransaction(i)}
-                                                                className="p-1 rounded hover:bg-blue-100 text-blue-600"
-                                                                title={t('editTransaction')}
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                </svg>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteTransaction(i)}
-                                                                className="p-1 rounded hover:bg-red-100 text-red-600"
-                                                                title={t('deleteTransaction')}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <td className="px-6 py-3 font-medium">{row.symbol}</td>
-                                                    <td className="px-6 py-3 text-right">{row.quantity}</td>
-                                                    <td className="px-6 py-3 text-right">{row.cost_basis}</td>
-                                                    <td className="px-6 py-3">{row.as_of}</td>
-                                                </>
-                                            )}
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    ) : (
+                                        holdings.map((row, i) => (
+                                            <tr key={`${row.datetime || row.as_of}-${row.symbol}-${i}`} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3">
+                                                    {row.symbol && row.symbol !== 'CASH' && (
+                                                        <button
+                                                            onClick={() => toggleTicker(row.symbol)}
+                                                            className={`p-1 rounded hover:bg-gray-200 ${selectedTickers.has(row.symbol) ? 'text-blue-600' : 'text-gray-400'}`}
+                                                            title={t('toggleOnChart')}
+                                                        >
+                                                            {selectedTickers.has(row.symbol) ? <Eye size={16} /> : <EyeOff size={16} />}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                                {portfolio.type === 'transaction' ? (
+                                                    <>
+                                                        <td className="px-6 py-3">{new Date(row.datetime).toLocaleDateString()}</td>
+                                                        <td className="px-6 py-3 font-medium">{row.symbol}</td>
+                                                        <td className="px-6 py-3">
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${row.side === 'BUY' ? 'bg-green-100 text-green-800' :
+                                                                row.side === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                {row.side}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-right">{row.quantity}</td>
+                                                        <td className="px-6 py-3 text-right">{row.price}</td>
+                                                        <td className="px-6 py-3 text-right">{row.fee}</td>
+                                                        <td className="px-6 py-3">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleEditTransaction(i)}
+                                                                    className="p-1 rounded hover:bg-blue-100 text-blue-600"
+                                                                    title={t('editTransaction')}
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                    </svg>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteTransaction(i)}
+                                                                    className="p-1 rounded hover:bg-red-100 text-red-600"
+                                                                    title={t('deleteTransaction')}
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td className="px-6 py-3 font-medium">{row.symbol}</td>
+                                                        <td className="px-6 py-3 text-right">{row.quantity}</td>
+                                                        <td className="px-6 py-3 text-right">{row.cost_basis}</td>
+                                                        <td className="px-6 py-3">{row.as_of}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 {loadingBenchmarkComparison ? (
@@ -629,7 +641,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         <p className="text-sm text-gray-400">{t('loadingBenchmark')}</p>
                     </div>
                 ) : benchmarkComparison && (
-                    <BenchmarkComparisonTable comparison={benchmarkComparison} />
+                    <BenchmarkComparisonTable 
+                        comparison={benchmarkComparison}
+                        isOpen={expandedSections.has('benchmarkComparison')}
+                        onToggle={() => toggleSection('benchmarkComparison')}
+                    />
                 )}
 
                 {allIndicators && (
