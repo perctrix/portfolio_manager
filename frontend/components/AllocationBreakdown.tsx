@@ -70,7 +70,7 @@ export default function AllocationBreakdown({ allocation }: AllocationBreakdownP
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 font-medium">
               <tr>
-                <th className="px-4 py-2 text-left rounded-tl-lg">{t('symbol') || 'Symbol'}</th>
+                <th className="px-4 py-2 text-left rounded-tl-lg">{t('symbol')}</th>
                 <th className="px-4 py-2 text-right rounded-tr-lg">{t('weight')}</th>
               </tr>
             </thead>

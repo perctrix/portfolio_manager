@@ -214,6 +214,7 @@
     "noData": "No allocation data available",
     "portfolioAllocation": "Portfolio Allocation",
     "positionWeights": "Position Weights",
+    "symbol": "Symbol",
     "weight": "Weight",
     "sectorAllocation": "Sector Allocation",
     "sector": "Sector"

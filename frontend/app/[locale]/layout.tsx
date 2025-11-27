@@ -1,31 +1,32 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import Footer from "@/components/Footer";
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, setRequestLocale } from 'next-intl/server';
+import { getMessages, setRequestLocale, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { locales } from '@/i18n/request';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-const geistSans = localFont({
-  src: "../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.woff2",
+const geistSans = Geist({
   variable: "--font-geist-sans",
-  weight: "100 900",
-  fallback: ['system-ui', 'arial'],
+  subsets: ["latin"],
 });
 
-const geistMono = localFont({
-  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.woff2",
+const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  weight: "100 900",
-  fallback: ['monospace'],
+  subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Portfolio Manager",
-  description: "A lightweight, privacy-focused portfolio management and analysis tool with comprehensive performance metrics.",
-};
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Metadata' });
+  
+  return {
+    title: t('title'),
+    description: t('description'),
+  };
+}
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

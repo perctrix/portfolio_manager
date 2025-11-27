@@ -214,6 +214,7 @@
     "noData": "暂无配置数据",
     "portfolioAllocation": "投资组合配置",
     "positionWeights": "持仓权重",
+    "symbol": "代码",
     "weight": "权重",
     "sectorAllocation": "行业配置",
     "sector": "行业"
