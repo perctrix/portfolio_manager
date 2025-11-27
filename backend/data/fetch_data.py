@@ -93,10 +93,8 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
     else:
         period1 = current_time - 86400
 
-    # url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-    #        f"?period1={period1}&period2={current_time}&interval={interval}")
-    url = (f"https://yahoo-proxy-eight.vercel.app/api/yahoo/chart/?ticker={ticker}"
-           f"&period1={period1}&period2={current_time}&interval={interval}")
+    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
+           f"?period1={period1}&period2={current_time}&interval={interval}")
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code != 200:
