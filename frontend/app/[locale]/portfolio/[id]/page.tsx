@@ -47,7 +47,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [loadingBenchmarkComparison, setLoadingBenchmarkComparison] = useState(false);
     const [selectedBetaBenchmark, setSelectedBetaBenchmark] = useState<string>('^GSPC');
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'positions', 'benchmarkComparison']));
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'positions', 'benchmarkPanel', 'benchmarkComparison']));
     const [loadingStep, setLoadingStep] = useState(0);
     const totalLoadingSteps = 5;
     const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
@@ -519,6 +519,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 <BenchmarkPanel
                     selectedBenchmarks={selectedBenchmarks}
                     onToggleBenchmark={toggleBenchmark}
+                    isOpen={expandedSections.has('benchmarkPanel')}
+                    onToggle={() => toggleSection('benchmarkPanel')}
                 />
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
