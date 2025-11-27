@@ -1,30 +1,100 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from app.models.portfolio import Portfolio, PortfolioType
 from app.core import prices
 from app.core import indicators
 
 class PortfolioEngine:
     def __init__(self, portfolio: Portfolio, data: list[dict]):
-        self.portfolio = portfolio
+        self.portfolio: Portfolio = portfolio
         self.failed_tickers: list[str] = []
         self.suggested_initial_deposit: float = 0.0
         self.cash_history: pd.Series = pd.Series()
 
+        # Request-scoped caches
+        self._price_cache: Dict[str, pd.DataFrame] = {}
+        self._nav_cache: Optional[pd.Series] = None
+        self._base_data_cache: Optional[Dict[str, Any]] = None
+
         if self.portfolio.type == PortfolioType.TRANSACTION:
             if data:
-                self.transactions = pd.DataFrame(data)
+                self.transactions: pd.DataFrame = pd.DataFrame(data)
                 self.transactions['datetime'] = pd.to_datetime(self.transactions['datetime'])
                 self.transactions = self.transactions.sort_values('datetime')
             else:
-                self.transactions = pd.DataFrame(columns=["datetime", "symbol", "side", "quantity", "price", "fee", "currency", "account", "note"])
+                self.transactions: pd.DataFrame = pd.DataFrame(columns=["datetime", "symbol", "side", "quantity", "price", "fee", "currency", "account", "note"])
         else:
             if data:
-                self.positions = pd.DataFrame(data)
+                self.positions: pd.DataFrame = pd.DataFrame(data)
             else:
-                self.positions = pd.DataFrame(columns=["as_of", "symbol", "quantity", "cost_basis", "currency", "note"])
+                self.positions: pd.DataFrame = pd.DataFrame(columns=["as_of", "symbol", "quantity", "cost_basis", "currency", "note"])
+
+    def _get_price_history(self, symbol: str) -> pd.DataFrame:
+        """Get price history with request-scoped cache.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            DataFrame with price history (columns: Open, High, Low, Close, Volume)
+        """
+        if symbol not in self._price_cache:
+            self._price_cache[symbol] = prices.get_price_history(symbol)
+        return self._price_cache[symbol]
+
+    def set_price_cache(self, cache: Dict[str, pd.DataFrame]) -> None:
+        """Set pre-loaded price cache from endpoint.
+
+        Args:
+            cache: Dictionary mapping symbol -> price DataFrame
+        """
+        self._price_cache = cache
+
+    def _prepare_base_data(self) -> Dict[str, Any]:
+        """Prepare all base data for indicator calculations (cached).
+
+        Returns:
+            Dictionary containing:
+            - nav: pd.Series - NAV history
+            - returns: pd.Series - Daily returns
+            - current_holdings: Dict[str, float] - {symbol: quantity}
+            - current_prices: Dict[str, float] - {symbol: current_price}
+            - weights: Dict[str, float] - {symbol: portfolio_weight}
+            - price_history: pd.DataFrame - Price history for all holdings
+        """
+        if self._base_data_cache is not None:
+            return self._base_data_cache
+
+        nav = self.calculate_nav_history()
+
+        if nav.empty:
+            self._base_data_cache = {
+                'nav': nav,
+                'returns': pd.Series(),
+                'current_holdings': {},
+                'current_prices': {},
+                'weights': {},
+                'price_history': pd.DataFrame()
+            }
+            return self._base_data_cache
+
+        returns = nav.pct_change(fill_method=None).dropna()
+        current_holdings = self._get_current_holdings()
+        current_prices = self._get_current_prices(current_holdings)
+        weights = self._calculate_weights(current_holdings, current_prices)
+        price_history = self._build_price_history_df(current_holdings)
+
+        self._base_data_cache = {
+            'nav': nav,
+            'returns': returns,
+            'current_holdings': current_holdings,
+            'current_prices': current_prices,
+            'weights': weights,
+            'price_history': price_history
+        }
+        return self._base_data_cache
 
     def _calculate_suggested_deposit(self, txns: pd.DataFrame) -> float:
         """Calculate suggested initial deposit amount based on transaction history"""
@@ -52,9 +122,16 @@ class PortfolioEngine:
         return round(suggested, -2) if suggested > 100 else round(suggested, 2)
 
     def calculate_nav_history(self) -> pd.Series:
-        """
-        Calculate NAV history.
-        """
+        """Calculate NAV history with caching."""
+        if self._nav_cache is not None:
+            return self._nav_cache
+
+        result = self._calculate_nav_history_impl()
+        self._nav_cache = result
+        return result
+
+    def _calculate_nav_history_impl(self) -> pd.Series:
+        """Internal implementation of NAV history calculation."""
         if self.portfolio.type == PortfolioType.SNAPSHOT:
             positions = self.positions
             if positions.empty:
@@ -63,10 +140,10 @@ class PortfolioEngine:
             # Get all symbols
             symbols = positions['symbol'].unique()
             price_data = {}
-            
+
             # Load prices
             for sym in symbols:
-                df = prices.get_price_history(sym)
+                df = self._get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
                 else:
@@ -139,7 +216,7 @@ class PortfolioEngine:
             price_data = {}
             for sym in symbols:
                 if sym == 'CASH': continue
-                df = prices.get_price_history(sym)
+                df = self._get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
                 else:
@@ -218,71 +295,34 @@ class PortfolioEngine:
             
         return pd.Series()
 
-    def get_indicators(self) -> dict[str, Any]:
-        nav = self.calculate_nav_history()
-        basic = indicators.calculate_basic_metrics(nav)
-        
-        # Advanced Risk Metrics
-        if not nav.empty:
-            returns = nav.pct_change().dropna()
-            advanced_risk = indicators.calculate_risk_metrics(returns)
+    def get_indicators(self) -> Dict[str, Any]:
+        """Get basic indicators using cached base data.
+
+        Returns:
+            Dictionary with basic indicators including:
+            - total_return, cagr, volatility, sharpe, max_drawdown
+            - sortino, calmar, var_95, cvar_95
+            - allocation metrics (hhi, concentration)
+            - risk_decomposition (if multiple holdings)
+        """
+        data = self._prepare_base_data()
+
+        if data['nav'].empty:
+            return {}
+
+        basic = indicators.calculate_basic_metrics(data['nav'])
+
+        if not data['returns'].empty:
+            advanced_risk = indicators.calculate_risk_metrics(data['returns'])
             basic.update(advanced_risk)
-            
-        # Allocation Metrics & Risk Decomposition
-        # We need current weights.
-        # For Snapshot: straightforward.
-        # For Transaction: use current_holdings from the last step of calculation.
-        # To avoid re-calculating everything, we might need to refactor calculate_nav_history to return holdings too,
-        # or just re-calculate current holdings here quickly.
-        
-        current_holdings = {}
-        if self.portfolio.type == PortfolioType.SNAPSHOT:
-            positions = self.positions
-            for _, row in positions.iterrows():
-                current_holdings[row['symbol']] = row['quantity']
-        elif self.portfolio.type == PortfolioType.TRANSACTION:
-            # Quick replay to get current holdings
-            txns = self.transactions
-            for _, txn in txns.iterrows():
-                sym = txn['symbol']
-                qty = float(txn['quantity'])
-                side = txn['side'].upper()
-                if side == 'BUY':
-                    current_holdings[sym] = current_holdings.get(sym, 0.0) + qty
-                elif side == 'SELL':
-                    current_holdings[sym] = current_holdings.get(sym, 0.0) - qty
-        
-        # Calculate current value for weights
-        # We need current prices
-        current_prices = {}
-        price_history_df = pd.DataFrame()
-        
-        for sym, qty in current_holdings.items():
-            if qty == 0: continue
-            df = prices.get_price_history(sym)
-            if not df.empty:
-                current_prices[sym] = df['Close'].iloc[-1]
-                # Collect history for Risk Decomposition
-                if price_history_df.empty:
-                    price_history_df = df[['Close']].rename(columns={'Close': sym})
-                else:
-                    price_history_df = price_history_df.join(df[['Close']].rename(columns={'Close': sym}), how='outer')
-        
-        total_value = sum(qty * current_prices.get(sym, 0) for sym, qty in current_holdings.items())
-        
-        weights = {}
-        if total_value > 0:
-            for sym, qty in current_holdings.items():
-                if qty != 0:
-                    val = qty * current_prices.get(sym, 0)
-                    weights[sym] = val / total_value
-                    
-        allocation = indicators.calculate_allocation_metrics(weights)
+
+        allocation = indicators.calculate_allocation_metrics(data['weights'])
         basic.update(allocation)
-        
-        # Risk Decomposition
-        if not price_history_df.empty and len(weights) > 1:
-            risk_decomp = indicators.calculate_risk_contribution(weights, price_history_df)
+
+        if not data['price_history'].empty and len(data['weights']) > 1:
+            risk_decomp = indicators.calculate_risk_contribution(
+                data['weights'], data['price_history']
+            )
             basic["risk_decomposition"] = risk_decomp
 
         return basic
@@ -309,10 +349,10 @@ class PortfolioEngine:
         return {k: v for k, v in current_holdings.items() if v != 0}
 
     def _get_current_prices(self, holdings: Dict[str, float]) -> Dict[str, float]:
-        """Get current prices for holdings"""
-        current_prices = {}
+        """Get current prices for holdings using cache."""
+        current_prices: Dict[str, float] = {}
         for sym in holdings.keys():
-            df = prices.get_price_history(sym)
+            df = self._get_price_history(sym)
             if not df.empty:
                 current_prices[sym] = float(df['Close'].iloc[-1])
         return current_prices
@@ -322,10 +362,10 @@ class PortfolioEngine:
         return indicators.calculate_weights(holdings, prices)
 
     def _build_price_history_df(self, holdings: Dict[str, float]) -> pd.DataFrame:
-        """Build price history DataFrame for holdings"""
-        price_data = {}
+        """Build price history DataFrame for holdings using cache."""
+        price_data: Dict[str, pd.Series] = {}
         for sym in holdings.keys():
-            df = prices.get_price_history(sym)
+            df = self._get_price_history(sym)
             if not df.empty:
                 price_data[sym] = df['Close']
 
@@ -340,19 +380,30 @@ class PortfolioEngine:
         return indicators.calculate_basic_portfolio_indicators(nav)
 
     def get_all_indicators(self) -> Dict[str, Any]:
-        """Get all portfolio indicators (approximately 79 indicators)"""
-        nav = self.calculate_nav_history()
-        transactions = self.transactions if self.portfolio.type == PortfolioType.TRANSACTION else None
-        current_holdings = self._get_current_holdings()
-        current_prices = self._get_current_prices(current_holdings)
-        weights = self._calculate_weights(current_holdings, current_prices)
-        price_history = self._build_price_history_df(current_holdings)
+        """Get all portfolio indicators using cached base data (approximately 79 indicators).
+
+        Returns:
+            Dictionary with indicators organized by category:
+            - returns: total_return, cagr, ytd, mtd, pnl, etc.
+            - risk: volatility, var, cvar, etc.
+            - drawdown: max_drawdown, recovery time, etc.
+            - risk_adjusted_ratios: sharpe, sortino, calmar, etc.
+            - allocation: weights, concentration, etc.
+            - trading: turnover, win_rate, profit_loss_ratio, etc. (transaction mode only)
+        """
+        data = self._prepare_base_data()
+
+        transactions = (
+            self.transactions
+            if self.portfolio.type == PortfolioType.TRANSACTION
+            else None
+        )
 
         return indicators.calculate_all_portfolio_indicators(
-            nav=nav,
+            nav=data['nav'],
             transactions=transactions,
-            holdings=current_holdings,
-            prices=current_prices,
-            price_history=price_history,
-            weights=weights
+            holdings=data['current_holdings'],
+            prices=data['current_prices'],
+            price_history=data['price_history'],
+            weights=data['weights']
         )
