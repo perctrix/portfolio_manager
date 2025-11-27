@@ -1,9 +1,13 @@
-import yfinance as yf
-import talib as ta
-import pandas as pd
+import logging
+
 import numpy as np
-from scipy.fft import fft, ifft, fftfreq
+import pandas as pd
+import talib as ta
+import yfinance as yf
+from scipy.fft import fft, fftfreq, ifft
 from tqdm import tqdm
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 def rolling_normalize(series, window=21):
     """
@@ -307,4 +311,4 @@ if __name__ == "__main__":
             data.to_csv(f'data_hours\{ticker}.csv', index=True)
         
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
+        logger.error("Error occurred: %s", e)
