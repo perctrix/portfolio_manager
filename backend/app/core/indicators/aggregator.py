@@ -243,8 +243,9 @@ def calculate_benchmark_comparison(
     Returns:
         Dict of {benchmark_symbol: {metric: value}}
     """
-    return correlation_beta.calculate_multi_benchmark_metrics(
+    result = correlation_beta.calculate_multi_benchmark_metrics(
         portfolio_returns,
         benchmark_returns_dict,
         risk_free_rate
     )
+    return sanitize_for_json(result)

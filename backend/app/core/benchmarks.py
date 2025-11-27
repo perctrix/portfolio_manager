@@ -166,7 +166,7 @@ class BenchmarkLoader:
         Returns:
             Dict of {symbol: returns_series}
         """
-        all_returns = {}
+        all_returns: Dict[str, pd.Series] = {}
 
         for benchmark in self.get_available_benchmarks():
             symbol = benchmark['symbol']
@@ -176,6 +176,45 @@ class BenchmarkLoader:
                 all_returns[symbol] = returns
 
         return all_returns
+
+    def load_all_benchmark_returns_from_cache(
+        self,
+        price_cache: Dict[str, pd.DataFrame],
+        start_date: Optional[pd.Timestamp] = None,
+        end_date: Optional[pd.Timestamp] = None
+    ) -> Dict[str, pd.Series]:
+        """Load benchmark returns using pre-cached price data.
+
+        Args:
+            price_cache: Dictionary mapping benchmark symbol -> price DataFrame
+            start_date: Optional start date to filter returns
+            end_date: Optional end date to filter returns
+
+        Returns:
+            Dictionary mapping benchmark symbol -> returns Series
+        """
+        result: Dict[str, pd.Series] = {}
+
+        for symbol, df in price_cache.items():
+            if df.empty:
+                continue
+
+            prices_series = df['Close']
+
+            if start_date:
+                prices_series = prices_series[prices_series.index >= start_date]
+            if end_date:
+                prices_series = prices_series[prices_series.index <= end_date]
+
+            if prices_series.empty:
+                continue
+
+            returns = prices_series.pct_change(fill_method=None).dropna()
+
+            if not returns.empty:
+                result[symbol] = returns
+
+        return result
 
 
 def get_benchmark_loader() -> BenchmarkLoader:

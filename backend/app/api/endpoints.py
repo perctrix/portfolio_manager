@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from typing import List
+from typing import Any, Dict, List, Tuple
 import logging
 import re
 import threading
 import json
 import os
 import asyncio
+import pandas as pd
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
@@ -216,122 +217,209 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
         logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+async def load_prices_batch(symbols: List[str]) -> Dict[str, pd.DataFrame]:
+    """Load multiple symbols' prices in parallel.
+
+    Args:
+        symbols: List of stock ticker symbols
+
+    Returns:
+        Dictionary mapping symbol -> price DataFrame
+    """
+    async def load_one(sym: str) -> Tuple[str, pd.DataFrame]:
+        df = await asyncio.to_thread(prices.get_price_history, sym)
+        return sym, df
+
+    results = await asyncio.gather(*[load_one(sym) for sym in symbols])
+    return {sym: df for sym, df in results if not df.empty}
+
+
+async def load_benchmarks_batch(
+    benchmark_loader: Any
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, pd.DataFrame]]:
+    """Load benchmark prices in parallel.
+
+    Args:
+        benchmark_loader: BenchmarkLoader instance
+
+    Returns:
+        Tuple of:
+        - formatted: Dict for frontend {symbol: {name, data: [{date, value}]}}
+        - raw_cache: Dict for calculations {symbol: DataFrame}
+    """
+    benchmarks_list = benchmark_loader.get_available_benchmarks()[:5]
+
+    async def load_one(bm: dict) -> Tuple[str, str, pd.DataFrame]:
+        sym = bm['symbol']
+        df = await asyncio.to_thread(prices.get_price_history, sym)
+        return sym, bm['name'], df
+
+    results = await asyncio.gather(*[load_one(bm) for bm in benchmarks_list])
+
+    formatted: Dict[str, Dict[str, Any]] = {}
+    raw_cache: Dict[str, pd.DataFrame] = {}
+
+    for sym, name, df in results:
+        if not df.empty:
+            raw_cache[sym] = df
+            formatted[sym] = {
+                "name": name,
+                "data": [
+                    {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                    for d, v in df['Close'].items()
+                ]
+            }
+
+    return formatted, raw_cache
+
+
 @router.post("/calculate/portfolio-full")
 async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]):
     """
-    SSE streaming endpoint: calculate and push portfolio data in stages
+    SSE streaming endpoint with parallel I/O and caching.
 
     Event flow:
-    1. prices_loaded - price data
+    1. prices_loaded - price data (parallel loaded)
     2. nav_calculated - NAV history
     3. indicators_basic_calculated - basic indicators
-    4. indicators_all_calculated - all indicators
-    5. benchmark_comparison_calculated - benchmark comparison
+    4. benchmark_comparison_calculated - benchmark comparison
+    5. indicators_all_calculated - all indicators
     6. complete - completion marker
     """
 
     async def event_generator():
         try:
-            symbols = list(set([row['symbol'] for row in data if row.get('symbol') and row['symbol'] != 'CASH']))
-            price_data = {}
-
-            for sym in symbols:
-                df = prices.get_price_history(sym)
-                if not df.empty:
-                    price_data[sym] = [
-                        {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
-                        for d, v in df['Close'].items()
-                    ]
-
             from app.core.benchmarks import get_benchmark_loader
+            from app.core.indicators.aggregator import calculate_benchmark_comparison
+
+            # Extract unique symbols from portfolio data
+            symbols = list(set([
+                row['symbol'] for row in data
+                if row.get('symbol') and row['symbol'] != 'CASH'
+            ]))
+
             benchmark_loader = get_benchmark_loader()
-            benchmark_data = {}
 
-            try:
-                benchmarks_list = benchmark_loader.get_available_benchmarks()
-                for bm in benchmarks_list[:5]:
-                    sym = bm['symbol']
-                    df = prices.get_price_history(sym)
-                    if not df.empty:
-                        benchmark_data[sym] = {
-                            "name": bm['name'],
-                            "data": [
-                                {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
-                                for d, v in df['Close'].items()
-                            ]
-                        }
-            except Exception as e:
-                logger.warning(f"Failed to load benchmark data: {e}")
+            # ============================================
+            # PHASE 1: Parallel I/O
+            # Load portfolio prices and benchmark prices concurrently
+            # ============================================
+            price_task = asyncio.create_task(load_prices_batch(symbols))
+            benchmark_task = asyncio.create_task(load_benchmarks_batch(benchmark_loader))
 
+            price_cache, (benchmark_formatted, benchmark_cache) = await asyncio.gather(
+                price_task, benchmark_task
+            )
+
+            # Format price data for frontend
+            price_data = {
+                sym: [
+                    {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                    for d, v in df['Close'].items()
+                ]
+                for sym, df in price_cache.items()
+            }
+
+            # ============================================
+            # PHASE 2: Send prices_loaded, calculate NAV
+            # ============================================
             yield f"event: prices_loaded\n"
-            yield f"data: {json.dumps({'prices': price_data, 'benchmarks': benchmark_data})}\n\n"
-            await asyncio.sleep(0.01)
+            yield f"data: {json.dumps({'prices': price_data, 'benchmarks': benchmark_formatted})}\n\n"
 
+            # Create engine with pre-loaded price cache
             eng = engine.PortfolioEngine(portfolio, data)
+            eng.set_price_cache(price_cache)
             nav = eng.calculate_nav_history()
 
             nav_result = {
-                "nav": [{"date": d.strftime("%Y-%m-%d"), "value": float(v)} for d, v in nav.items()],
-                "cash": [{"date": d.strftime("%Y-%m-%d"), "value": float(v)} for d, v in eng.cash_history.items()],
+                "nav": [
+                    {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                    for d, v in nav.items()
+                ],
+                "cash": [
+                    {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                    for d, v in eng.cash_history.items()
+                ],
                 "failed_tickers": eng.failed_tickers
             }
 
+            # ============================================
+            # PHASE 3: Send nav_calculated, start parallel calculations
+            # ============================================
             yield f"event: nav_calculated\n"
             yield f"data: {json.dumps(nav_result)}\n\n"
-            await asyncio.sleep(0.01)
 
-            indicators_basic = eng.get_indicators()
+            # Parallel: basic indicators + benchmark comparison
+            async def calc_basic() -> Dict[str, Any]:
+                return await asyncio.to_thread(eng.get_indicators)
 
-            yield f"event: indicators_basic_calculated\n"
-            yield f"data: {json.dumps(indicators_basic)}\n\n"
-            await asyncio.sleep(0.01)
-
-            indicators_all = eng.get_all_indicators()
-
-            yield f"event: indicators_all_calculated\n"
-            yield f"data: {json.dumps(indicators_all)}\n\n"
-            await asyncio.sleep(0.01)
-
-            benchmark_comparison = {"benchmarks": {}}
-            if not nav.empty:
+            async def calc_benchmark_comparison() -> Dict[str, Any]:
+                if nav.empty:
+                    return {"benchmarks": {}}
                 try:
-                    from app.core.indicators.aggregator import calculate_benchmark_comparison
                     portfolio_returns = nav.pct_change(fill_method=None).dropna()
-                    benchmark_returns = benchmark_loader.load_all_benchmark_returns(
-                        start_date=nav.index[0],
-                        end_date=nav.index[-1]
+
+                    # Use cached benchmark data instead of re-fetching
+                    benchmark_returns = benchmark_loader.load_all_benchmark_returns_from_cache(
+                        benchmark_cache, nav.index[0], nav.index[-1]
                     )
 
-                    if benchmark_returns:
-                        comparison = calculate_benchmark_comparison(
-                            portfolio_returns, benchmark_returns, risk_free_rate=0.0
-                        )
-                        result = {}
-                        for symbol, metrics in comparison.items():
-                            result[symbol] = {
-                                "name": benchmark_loader.get_benchmark_name(symbol),
-                                "metrics": metrics
-                            }
-                        benchmark_comparison = {"benchmarks": result}
+                    if not benchmark_returns:
+                        return {"benchmarks": {}}
+
+                    comparison = calculate_benchmark_comparison(
+                        portfolio_returns, benchmark_returns, 0.0
+                    )
+
+                    return {"benchmarks": {
+                        sym: {
+                            "name": benchmark_loader.get_benchmark_name(sym),
+                            "metrics": metrics
+                        }
+                        for sym, metrics in comparison.items()
+                    }}
                 except Exception as e:
                     logger.warning(f"Benchmark comparison failed: {e}")
+                    return {"benchmarks": {}}
+
+            indicators_basic, benchmark_comparison = await asyncio.gather(
+                calc_basic(), calc_benchmark_comparison()
+            )
+
+            # ============================================
+            # PHASE 4: Send basic + benchmark, calculate all_indicators
+            # ============================================
+            yield f"event: indicators_basic_calculated\n"
+            yield f"data: {json.dumps(indicators_basic)}\n\n"
 
             yield f"event: benchmark_comparison_calculated\n"
             yield f"data: {json.dumps(benchmark_comparison)}\n\n"
-            await asyncio.sleep(0.01)
 
+            # Calculate all indicators (uses cached base data)
+            indicators_all = await asyncio.to_thread(eng.get_all_indicators)
+
+            yield f"event: indicators_all_calculated\n"
+            yield f"data: {json.dumps(indicators_all)}\n\n"
+
+            # ============================================
+            # PHASE 5: Complete
+            # ============================================
             completion_data = {
                 "failed_tickers": eng.failed_tickers,
-                "suggested_initial_deposit": eng.suggested_initial_deposit if eng.suggested_initial_deposit > 0 else None
+                "suggested_initial_deposit": (
+                    eng.suggested_initial_deposit
+                    if eng.suggested_initial_deposit > 0 else None
+                )
             }
 
             yield f"event: complete\n"
             yield f"data: {json.dumps(completion_data)}\n\n"
 
-            async def update_prices_background():
+            # Background price update
+            async def update_prices_background() -> None:
                 for sym in symbols:
                     try:
-                        prices.update_price_cache(sym)
+                        await asyncio.to_thread(prices.update_price_cache, sym)
                     except Exception as e:
                         logger.warning(f"Background price update failed for {sym}: {e}")
 
