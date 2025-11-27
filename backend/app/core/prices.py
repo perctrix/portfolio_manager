@@ -42,7 +42,7 @@ def fetch_price_data(symbol: str, start_date: str = '2020-01-01', interval: str 
         try:
             stock = calculate_technical_indicators_batch(stock)
         except Exception as e:
-            print(f"Warning: Failed to calculate indicators for {symbol}: {e}")
+            logger.warning("Failed to calculate indicators for %s: %s", symbol, e)
 
     return stock
 
