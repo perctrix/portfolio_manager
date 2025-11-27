@@ -58,8 +58,7 @@ def get_stealth_headers() -> dict:
         'DNT': '1',
         'Pragma': 'no-cache',
         'X-Forwarded-For': (f"{random.randint(1,255)}.{random.randint(1,255)}."
-                            f"{random.randint(1,255)}.{random.randint(1,255)}."
-                            f"{random.randint(1,255)}"),
+                            f"{random.randint(1,255)}.{random.randint(1,255)}"),
         'X-Real-IP': (f"{random.randint(1,255)}.{random.randint(1,255)}."
                       f"{random.randint(1,255)}.{random.randint(1,255)}"),
         'X-Requested-With': 'XMLHttpRequest'
