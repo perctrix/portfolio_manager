@@ -1,4 +1,7 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+'use client';
+
+import { useTranslations } from 'next-intl';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { formatPercentage } from '@/utils/formatters';
 import { AllocationMetrics } from '@/types/indicators';
 
@@ -9,10 +12,12 @@ interface AllocationBreakdownProps {
 const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0891b2', '#6366f1'];
 
 export default function AllocationBreakdown({ allocation }: AllocationBreakdownProps) {
+  const t = useTranslations('AllocationBreakdown');
+
   if (!allocation || !allocation.weights) {
     return (
       <div className="text-sm text-gray-500 text-center py-4">
-        No allocation data available
+        {t('noData')}
       </div>
     );
   }
@@ -33,7 +38,7 @@ export default function AllocationBreakdown({ allocation }: AllocationBreakdownP
       {chartData.length > 0 && (
         <div className="bg-gray-50 rounded-lg p-4">
           <h4 className="text-sm font-medium text-gray-700 mb-4 text-center">
-            Portfolio Allocation
+            {t('portfolioAllocation')}
           </h4>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -59,14 +64,14 @@ export default function AllocationBreakdown({ allocation }: AllocationBreakdownP
 
       <div>
         <h4 className="text-sm font-medium text-gray-700 mb-3">
-          Position Weights
+          {t('positionWeights')}
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 font-medium">
               <tr>
-                <th className="px-4 py-2 text-left rounded-tl-lg">Symbol</th>
-                <th className="px-4 py-2 text-right rounded-tr-lg">Weight</th>
+                <th className="px-4 py-2 text-left rounded-tl-lg">{t('symbol')}</th>
+                <th className="px-4 py-2 text-right rounded-tr-lg">{t('weight')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -86,14 +91,14 @@ export default function AllocationBreakdown({ allocation }: AllocationBreakdownP
       {allocation.sector_allocation && Object.keys(allocation.sector_allocation).length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-3">
-            Sector Allocation
+            {t('sectorAllocation')}
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 font-medium">
                 <tr>
-                  <th className="px-4 py-2 text-left rounded-tl-lg">Sector</th>
-                  <th className="px-4 py-2 text-right rounded-tr-lg">Weight</th>
+                  <th className="px-4 py-2 text-left rounded-tl-lg">{t('sector')}</th>
+                  <th className="px-4 py-2 text-right rounded-tr-lg">{t('weight')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { formatPercentage, formatMonthYear } from '@/utils/formatters';
 
 interface MonthlyReturnsTableProps {
@@ -5,10 +8,12 @@ interface MonthlyReturnsTableProps {
 }
 
 export default function MonthlyReturnsTable({ monthlyReturns }: MonthlyReturnsTableProps) {
+  const t = useTranslations('MonthlyReturns');
+
   if (!monthlyReturns || Object.keys(monthlyReturns).length === 0) {
     return (
       <div className="text-sm text-gray-500 text-center py-4">
-        No monthly returns data available
+        {t('noData')}
       </div>
     );
   }
@@ -22,14 +27,14 @@ export default function MonthlyReturnsTable({ monthlyReturns }: MonthlyReturnsTa
   return (
     <div className="mt-4">
       <h4 className="text-sm font-medium text-gray-700 mb-3">
-        Recent Monthly Returns
+        {t('title')}
       </h4>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 font-medium">
             <tr>
-              <th className="px-4 py-2 text-left rounded-tl-lg">Month</th>
-              <th className="px-4 py-2 text-right rounded-tr-lg">Return</th>
+              <th className="px-4 py-2 text-left rounded-tl-lg">{t('month')}</th>
+              <th className="px-4 py-2 text-right rounded-tr-lg">{t('return')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -58,7 +63,7 @@ export default function MonthlyReturnsTable({ monthlyReturns }: MonthlyReturnsTa
       </div>
       {sortedEntries.length > 12 && (
         <p className="text-xs text-gray-400 mt-2 text-center">
-          Showing most recent 12 months
+          {t('showingRecent')}
         </p>
       )}
     </div>

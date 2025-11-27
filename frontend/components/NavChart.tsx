@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Legend, ReferenceDot } from 'recharts';
 
 interface NavChartProps {
@@ -32,6 +33,7 @@ const BENCHMARK_COLORS = [
 ];
 
 export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkData = {} }: NavChartProps) {
+    const t = useTranslations('NavChart');
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -46,7 +48,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
     if (!data || data.length === 0) {
         return (
             <div className="h-64 flex items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400">
-                No data available
+                {t('noData')}
             </div>
         );
     }
@@ -309,12 +311,12 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
             const minAllowed = new Date(MIN_DATE);
 
             if (start < minAllowed) {
-                alert(`Start date cannot be earlier than ${MIN_DATE}`);
+                alert(`${t('startDateError')} ${MIN_DATE}`);
                 return;
             }
 
             if (start >= end) {
-                alert('End date must be after start date');
+                alert(t('endDateError'));
                 return;
             }
 
@@ -356,13 +358,13 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                         }`}
                         title="Toggle cash display"
                     >
-                        {showCash ? 'Hide Cash' : 'Show Cash'}
+                        {showCash ? t('hideCash') : t('showCash')}
                     </button>
                 )}
 
                 {timeRange === 'CUSTOM' && (
                     <div className="flex items-center gap-2 ml-4">
-                        <label className="text-sm text-gray-600">From:</label>
+                        <label className="text-sm text-gray-600">{t('from')}</label>
                         <input
                             type="date"
                             value={customStartDate}
@@ -371,7 +373,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                             max={getTodayString()}
                             className="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <label className="text-sm text-gray-600">To:</label>
+                        <label className="text-sm text-gray-600">{t('to')}</label>
                         <input
                             type="date"
                             value={customEndDate}
@@ -385,7 +387,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                             disabled={!customStartDate || !customEndDate}
                             className="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                         >
-                            Apply
+                            {t('apply')}
                         </button>
                     </div>
                 )}
@@ -453,7 +455,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                     />
                     <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: number) => [formatValue(value), isComparisonMode ? 'Change' : 'NAV']}
+                        formatter={(value: number) => [formatValue(value), isComparisonMode ? t('change') : t('nav')]}
                         labelFormatter={(label: any) => new Date(label).toLocaleDateString()}
                     />
                     <Legend />
@@ -461,7 +463,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                     <Line
                         type="monotone"
                         dataKey={isComparisonMode ? "normalizedValue" : "value"}
-                        name="Portfolio"
+                        name={t('portfolio')}
                         stroke="#2563eb"
                         strokeWidth={2}
                         dot={false}
@@ -472,7 +474,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                         <Line
                             type="monotone"
                             dataKey="cash"
-                            name="Cash"
+                            name={t('cash')}
                             stroke="#10b981"
                             strokeWidth={2}
                             strokeDasharray="5 5"

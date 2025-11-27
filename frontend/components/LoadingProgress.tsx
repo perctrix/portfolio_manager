@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 
 interface LoadingProgressProps {
     currentStep: number;
@@ -9,19 +10,20 @@ interface LoadingProgressProps {
 }
 
 export function LoadingProgress({ currentStep, totalSteps, stepLabels }: LoadingProgressProps) {
+    const t = useTranslations('LoadingProgress');
     const progress = Math.round((currentStep / totalSteps) * 100);
     
     const defaultLabels = [
-        'Loading portfolio...',
-        'Updating prices...',
-        'Calculating NAV...',
-        'Computing indicators...',
-        'Loading all metrics...',
-        'Comparing benchmarks...'
+        t('loadingPortfolio'),
+        t('updatingPrices'),
+        t('calculatingNav'),
+        t('computingIndicators'),
+        t('loadingAllMetrics'),
+        t('comparingBenchmarks')
     ];
     
     const labels = stepLabels || defaultLabels;
-    const currentLabel = labels[Math.min(currentStep, labels.length - 1)] || 'Processing...';
+    const currentLabel = labels[Math.min(currentStep, labels.length - 1)] || t('processing');
 
     return (
         <div className="w-full space-y-3">

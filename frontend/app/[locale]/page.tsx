@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { Portfolio } from '@/types';
 import { getAllPortfolios, savePortfolio } from '@/lib/storage';
 
 export default function Home() {
+  const t = useTranslations('Home');
+  const locale = useLocale();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +45,7 @@ export default function Home() {
       loadPortfolios();
     } catch (err) {
       console.error(err);
-      alert('Failed to import portfolio. Invalid file format.');
+      alert(t('importError'));
     }
     e.target.value = '';
   }
@@ -51,10 +54,10 @@ export default function Home() {
     <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Portfolios</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
           <div className="flex gap-4">
             <label className="bg-white text-blue-600 border border-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
-              Import Portfolio
+              {t('importPortfolio')}
               <input
                 type="file"
                 accept=".json"
@@ -63,24 +66,24 @@ export default function Home() {
               />
             </label>
             <Link
-              href="/create"
+              href={`/${locale}/create`}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              + New Portfolio
+              {t('newPortfolio')}
             </Link>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">Loading...</div>
+          <div className="text-center py-12">{t('loading')}</div>
         ) : portfolios.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
-            <p className="text-gray-500 mb-4">No portfolios found.</p>
+            <p className="text-gray-500 mb-4">{t('noPortfolios')}</p>
             <Link
-              href="/create"
+              href={`/${locale}/create`}
               className="text-blue-600 hover:underline"
             >
-              Create your first portfolio
+              {t('createFirst')}
             </Link>
           </div>
         ) : (
@@ -88,7 +91,7 @@ export default function Home() {
             {portfolios.map((portfolio) => (
               <Link
                 key={portfolio.id}
-                href={`/portfolio/${portfolio.id}`}
+                href={`/${locale}/portfolio/${portfolio.id}`}
                 className="block bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
               >
                 <div className="flex justify-between items-start">
