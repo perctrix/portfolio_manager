@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from typing import List
 import logging
 import re
 import threading
 import json
 import os
+import asyncio
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
@@ -213,6 +215,143 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
     except Exception as e:
         logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/calculate/portfolio-full")
+async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]):
+    """
+    SSE streaming endpoint: calculate and push portfolio data in stages
+
+    Event flow:
+    1. prices_loaded - price data
+    2. nav_calculated - NAV history
+    3. indicators_basic_calculated - basic indicators
+    4. indicators_all_calculated - all indicators
+    5. benchmark_comparison_calculated - benchmark comparison
+    6. complete - completion marker
+    """
+
+    async def event_generator():
+        try:
+            symbols = list(set([row['symbol'] for row in data if row.get('symbol') and row['symbol'] != 'CASH']))
+            price_data = {}
+
+            for sym in symbols:
+                df = prices.get_price_history(sym)
+                if not df.empty:
+                    price_data[sym] = [
+                        {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                        for d, v in df['Close'].items()
+                    ]
+
+            from app.core.benchmarks import get_benchmark_loader
+            benchmark_loader = get_benchmark_loader()
+            benchmark_data = {}
+
+            try:
+                benchmarks_config = benchmark_loader.load_benchmark_config()
+                for bm in benchmarks_config.get('benchmarks', [])[:5]:
+                    sym = bm['symbol']
+                    df = prices.get_price_history(sym)
+                    if not df.empty:
+                        benchmark_data[sym] = {
+                            "name": bm['name'],
+                            "data": [
+                                {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+                                for d, v in df['Close'].items()
+                            ]
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to load benchmark data: {e}")
+
+            yield f"event: prices_loaded\n"
+            yield f"data: {json.dumps({'prices': price_data, 'benchmarks': benchmark_data})}\n\n"
+            await asyncio.sleep(0.01)
+
+            eng = engine.PortfolioEngine(portfolio, data)
+            nav = eng.calculate_nav_history()
+
+            nav_result = {
+                "nav": [{"date": d.strftime("%Y-%m-%d"), "value": float(v)} for d, v in nav.items()],
+                "cash": [{"date": d.strftime("%Y-%m-%d"), "value": float(v)} for d, v in eng.cash_history.items()],
+                "failed_tickers": eng.failed_tickers
+            }
+
+            yield f"event: nav_calculated\n"
+            yield f"data: {json.dumps(nav_result)}\n\n"
+            await asyncio.sleep(0.01)
+
+            indicators_basic = eng.get_indicators()
+
+            yield f"event: indicators_basic_calculated\n"
+            yield f"data: {json.dumps(indicators_basic)}\n\n"
+            await asyncio.sleep(0.01)
+
+            indicators_all = eng.get_all_indicators()
+
+            yield f"event: indicators_all_calculated\n"
+            yield f"data: {json.dumps(indicators_all)}\n\n"
+            await asyncio.sleep(0.01)
+
+            benchmark_comparison = {"benchmarks": {}}
+            if not nav.empty:
+                try:
+                    from app.core.indicators.aggregator import calculate_benchmark_comparison
+                    portfolio_returns = nav.pct_change().dropna()
+                    benchmark_returns = benchmark_loader.load_all_benchmark_returns(
+                        start_date=nav.index[0],
+                        end_date=nav.index[-1]
+                    )
+
+                    if benchmark_returns:
+                        comparison = calculate_benchmark_comparison(
+                            portfolio_returns, benchmark_returns, risk_free_rate=0.0
+                        )
+                        result = {}
+                        for symbol, metrics in comparison.items():
+                            result[symbol] = {
+                                "name": benchmark_loader.get_benchmark_name(symbol),
+                                "metrics": metrics
+                            }
+                        benchmark_comparison = {"benchmarks": result}
+                except Exception as e:
+                    logger.warning(f"Benchmark comparison failed: {e}")
+
+            yield f"event: benchmark_comparison_calculated\n"
+            yield f"data: {json.dumps(benchmark_comparison)}\n\n"
+            await asyncio.sleep(0.01)
+
+            completion_data = {
+                "failed_tickers": eng.failed_tickers,
+                "suggested_initial_deposit": eng.suggested_initial_deposit if eng.suggested_initial_deposit > 0 else None
+            }
+
+            yield f"event: complete\n"
+            yield f"data: {json.dumps(completion_data)}\n\n"
+
+            async def update_prices_background():
+                for sym in symbols:
+                    try:
+                        prices.update_price_cache(sym)
+                    except Exception as e:
+                        logger.warning(f"Background price update failed for {sym}: {e}")
+
+            asyncio.create_task(update_prices_background())
+
+        except Exception as e:
+            logger.error(f"Stream error: {e}")
+            error_data = {"error": str(e)}
+            yield f"event: error\n"
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 @router.post("/prices/update")
 def update_price(symbol: str):
