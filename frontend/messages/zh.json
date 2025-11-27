@@ -252,9 +252,12 @@
   },
   "LoadingProgress": {
     "loadingPortfolio": "加载投资组合...",
+    "loadingPrices": "加载价格数据...",
     "updatingPrices": "更新价格...",
     "calculatingNav": "计算净值...",
+    "computingBasicIndicators": "计算基础指标...",
     "computingIndicators": "计算指标...",
+    "computingAllMetrics": "计算全量指标...",
     "loadingAllMetrics": "加载所有指标...",
     "comparingBenchmarks": "比较基准...",
     "processing": "处理中..."
