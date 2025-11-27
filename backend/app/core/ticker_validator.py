@@ -1,11 +1,16 @@
-import os
 import json
-import requests
+import logging
+import os
 import time
-import portalocker
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+import portalocker
+import requests
+
 from app.core import storage
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 DYNAMIC_TICKERS_FILE = os.path.join(storage.TICKERS_DIR, "dynamic.json")
 
@@ -45,31 +50,31 @@ def validate_ticker_via_yahoo(symbol: str, max_retries: int = 3) -> tuple[bool, 
                 # Symbol not found in results
                 return False, None
             else:
-                print(f"Yahoo Finance API returned status code {response.status_code} for symbol {symbol}: {response.reason}")
+                logger.warning("Yahoo Finance API returned status code %d for symbol %s: %s", response.status_code, symbol, response.reason)
                 # For client errors (4xx), don't retry - ticker doesn't exist
                 if 400 <= response.status_code < 500:
                     return False, None
                 # For server errors (5xx), retry with backoff
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt  # exponential backoff
-                    print(f"Retrying in {wait_time} seconds...")
+                    logger.info("Retrying in %d seconds...", wait_time)
                     time.sleep(wait_time)
                     continue
                 return False, None
 
         except requests.exceptions.Timeout:
-            print(f"Timeout occurred while validating ticker {symbol}")
+            logger.warning("Timeout occurred while validating ticker %s", symbol)
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
-                print(f"Retrying in {wait_time} seconds...")
+                logger.info("Retrying in %d seconds...", wait_time)
                 time.sleep(wait_time)
                 continue
             return False, None
         except Exception as e:
-            print(f"Error validating ticker {symbol}: {e}")
+            logger.error("Error validating ticker %s: %s", symbol, e)
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
-                print(f"Retrying in {wait_time} seconds...")
+                logger.info("Retrying in %d seconds...", wait_time)
                 time.sleep(wait_time)
                 continue
             return False, None
@@ -87,7 +92,7 @@ def load_dynamic_tickers() -> dict:
             data = json.load(f)
         return {t['symbol']: t for t in data.get('tickers', [])}
     except Exception as e:
-        print(f"Error loading dynamic tickers: {e}")
+        logger.error("Error loading dynamic tickers: %s", e)
         return {}
 
 
@@ -135,14 +140,14 @@ def add_to_dynamic_list(symbol: str, info: dict) -> bool:
                 # Atomic rename (cross-platform atomic operation)
                 os.replace(temp_file, DYNAMIC_TICKERS_FILE)
 
-                print(f"Added ticker {symbol} to dynamic list")
+                logger.info("Added ticker %s to dynamic list", symbol)
                 return True
             finally:
                 # Release lock
                 portalocker.unlock(lock_fd)
 
     except Exception as e:
-        print(f"Error adding ticker {symbol} to dynamic list: {e}")
+        logger.error("Error adding ticker %s to dynamic list: %s", symbol, e)
         return False
 
 
