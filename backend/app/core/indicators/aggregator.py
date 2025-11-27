@@ -50,7 +50,7 @@ def calculate_basic_portfolio_indicators(nav: pd.Series) -> Dict[str, float]:
             'max_drawdown': 0.0
         }
 
-    returns = nav.pct_change().dropna()
+    returns = nav.pct_change(fill_method=None).dropna()
 
     total_return = (nav.iloc[-1] / nav.iloc[0]) - 1
     cagr = returns_module.calculate_cagr(nav)
@@ -97,7 +97,7 @@ def calculate_all_portfolio_indicators(
     if nav.empty:
         return result
 
-    returns = nav.pct_change().dropna()
+    returns = nav.pct_change(fill_method=None).dropna()
 
     result['returns'] = {}
     result['returns']['simple_returns_mean'] = float(returns.mean())
@@ -218,7 +218,7 @@ def calculate_all_portfolio_indicators(
 
     if price_history is not None and not price_history.empty and len(price_history) > 1:
         result['correlation'] = {}
-        returns_df = price_history.pct_change().dropna()
+        returns_df = price_history.pct_change(fill_method=None).dropna()
         if not returns_df.empty and returns_df.shape[1] > 1:
             result['correlation']['mean_pairwise'] = correlation_beta.calculate_mean_pairwise_correlation(returns_df)
             max_corr, min_corr = correlation_beta.calculate_max_min_correlation(returns_df)

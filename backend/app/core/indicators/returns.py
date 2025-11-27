@@ -5,7 +5,7 @@ from typing import Dict, Optional
 
 def calculate_simple_returns(prices: pd.Series) -> pd.Series:
     """Calculate daily simple returns: r_t = P_t / P_{t-1} - 1"""
-    return prices.pct_change()
+    return prices.pct_change(fill_method=None)
 
 def calculate_log_returns(prices: pd.Series) -> pd.Series:
     """Calculate daily log returns: ln(P_t / P_{t-1})"""
