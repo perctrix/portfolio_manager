@@ -10,3 +10,4 @@ backend/data/prices/**
 .vercel
 .next
 settings.local.json
+nul
