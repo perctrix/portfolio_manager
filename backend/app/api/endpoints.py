@@ -296,7 +296,7 @@ async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]
             if not nav.empty:
                 try:
                     from app.core.indicators.aggregator import calculate_benchmark_comparison
-                    portfolio_returns = nav.pct_change().dropna()
+                    portfolio_returns = nav.pct_change(fill_method=None).dropna()
                     benchmark_returns = benchmark_loader.load_all_benchmark_returns(
                         start_date=nav.index[0],
                         end_date=nav.index[-1]
