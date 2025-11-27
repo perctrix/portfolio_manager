@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "geist": "^1.5.1",
     "lucide-react": "^0.554.0",
     "next": "16.0.3",
     "next-intl": "^4.5.5",
