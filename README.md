@@ -121,6 +121,86 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - **Storage**: Local CSV/JSON files (no database required)
 - **Scheduler**: APScheduler for automated benchmark updates
 
+### SSE Streaming with Parallel I/O
+
+The `/api/calculate/portfolio-full` endpoint uses Server-Sent Events (SSE) with optimized parallel I/O and request-scoped caching for maximum performance.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI Endpoint
+    participant Cache as Request Cache
+    participant Yahoo as Yahoo Finance API
+    participant Engine as PortfolioEngine
+
+    Client->>API: POST /calculate/portfolio-full
+
+    rect rgb(230, 245, 255)
+        Note over API,Yahoo: Phase 1: Parallel I/O
+        par Load Portfolio Prices
+            API->>Yahoo: get_price_history(AAPL)
+            API->>Yahoo: get_price_history(MSFT)
+            API->>Yahoo: get_price_history(...)
+        and Load Benchmark Prices
+            API->>Yahoo: get_price_history(^GSPC)
+            API->>Yahoo: get_price_history(^DJI)
+            API->>Yahoo: get_price_history(...)
+        end
+        Yahoo-->>API: Price DataFrames
+    end
+
+    API->>Cache: Store price_cache
+    API-->>Client: SSE: prices_loaded
+
+    rect rgb(255, 245, 230)
+        Note over API,Engine: Phase 2: NAV Calculation
+        API->>Engine: PortfolioEngine(portfolio, data)
+        API->>Engine: set_price_cache(cache)
+        Engine->>Cache: Use cached prices
+        Engine-->>API: NAV history
+    end
+
+    API-->>Client: SSE: nav_calculated
+
+    rect rgb(230, 255, 230)
+        Note over API,Engine: Phase 3: Parallel Calculations
+        par Basic Indicators
+            API->>Engine: get_indicators()
+            Engine->>Cache: Use _base_data_cache
+        and Benchmark Comparison
+            API->>Cache: load_benchmark_returns_from_cache()
+        end
+        Engine-->>API: Results
+    end
+
+    API-->>Client: SSE: indicators_basic_calculated
+    API-->>Client: SSE: benchmark_comparison_calculated
+
+    rect rgb(245, 230, 255)
+        Note over API,Engine: Phase 4: All Indicators
+        API->>Engine: get_all_indicators()
+        Engine->>Cache: Reuse _base_data_cache
+        Engine-->>API: 79 indicators
+    end
+
+    API-->>Client: SSE: indicators_all_calculated
+    API-->>Client: SSE: complete
+```
+
+**Key Optimizations:**
+
+| Optimization | Before | After | Improvement |
+|-------------|--------|-------|-------------|
+| Price Loading | Sequential (N * T) | Parallel (T) | ~Nx faster |
+| NAV Calculation | 3x repeated | 1x cached | 3x faster |
+| Price Fetching | Multiple calls | Request-scoped cache | 2-3x faster |
+| Basic + Benchmark | Sequential | Parallel | ~2x faster |
+
+**Caching Strategy:**
+- `_price_cache`: Stores price DataFrames, injected from parallel load or populated on-demand
+- `_nav_cache`: Caches NAV Series to avoid redundant calculations
+- `_base_data_cache`: Caches shared data (returns, holdings, weights, price_history) for indicator methods
+
 ## Setup
 
 ### Backend
@@ -152,6 +232,7 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 ## API Endpoints
 
 ### Portfolio Analysis
+- `POST /api/calculate/portfolio-full` - **SSE streaming endpoint** with parallel I/O (recommended)
 - `POST /api/calculate/nav` - Calculate NAV history
 - `POST /api/calculate/indicators` - Calculate performance indicators (legacy)
 - `POST /api/calculate/indicators/all` - Calculate all 79 indicators
@@ -170,6 +251,43 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 ### Scheduler
 - `GET /api/scheduler/status` - Get scheduler status and next run times
 - `POST /api/scheduler/update-now` - Manually trigger benchmark update
+
+## Testing
+
+### Stress Test
+
+A stress test script is provided to evaluate the SSE endpoint performance:
+
+```bash
+cd backend
+python scripts/stress_test.py --base-url http://localhost:8000 --concurrency 5 --requests 20 --portfolio-size medium
+```
+
+Options:
+- `--base-url` - API base URL (default: http://localhost:8000)
+- `--concurrency` - Number of concurrent requests (default: 5)
+- `--requests` - Total number of requests (default: 20)
+- `--portfolio-size` - Test portfolio size: small, medium, large (default: medium)
+- `--timeout` - Request timeout in seconds (default: 120)
+
+Example output:
+```
+============================================================
+STRESS TEST RESULTS
+============================================================
+
+Requests Summary:
+  Total:      20
+  Successful: 20
+  Failed:     0
+  Success Rate: 100.0%
+  Throughput: 0.43 req/s
+
+Request Duration (ms):
+  Min:    4927.9
+  Mean:   9516.6
+  P95:    14107.9
+```
 
 ## Data Storage
 
@@ -210,6 +328,8 @@ portfolio_manager/
 │   │   ├── fetch_data.py             # Yahoo Finance data fetcher
 │   │   ├── benchmarks.json           # Benchmark configurations
 │   │   └── prices/                   # Price data cache
+│   ├── scripts/
+│   │   └── stress_test.py            # SSE endpoint stress test
 │   └── main.py                       # FastAPI application
 └── frontend/
     ├── app/
