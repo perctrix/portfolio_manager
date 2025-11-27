@@ -252,9 +252,12 @@
   },
   "LoadingProgress": {
     "loadingPortfolio": "Loading portfolio...",
+    "loadingPrices": "Loading price data...",
     "updatingPrices": "Updating prices...",
     "calculatingNav": "Calculating NAV...",
+    "computingBasicIndicators": "Computing basic indicators...",
     "computingIndicators": "Computing indicators...",
+    "computingAllMetrics": "Computing all metrics...",
     "loadingAllMetrics": "Loading all metrics...",
     "comparingBenchmarks": "Comparing benchmarks...",
     "processing": "Processing..."

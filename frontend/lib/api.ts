@@ -150,3 +150,95 @@ export async function calculateBenchmarkComparison(portfolio: Portfolio, data: a
     const result = await safeJsonParse(response);
     return result.benchmarks;
 }
+
+export interface PortfolioStreamCallbacks {
+    onPricesLoaded?: (data: { prices: any, benchmarks: any }) => void;
+    onNavCalculated?: (data: { nav: any[], cash: any[], failed_tickers: string[] }) => void;
+    onIndicatorsBasicCalculated?: (data: any) => void;
+    onIndicatorsAllCalculated?: (data: AllIndicators) => void;
+    onBenchmarkComparisonCalculated?: (data: { benchmarks: BenchmarkComparison }) => void;
+    onComplete?: (data: { failed_tickers: string[], suggested_initial_deposit?: number }) => void;
+    onError?: (error: string) => void;
+}
+
+export async function calculatePortfolioFullStream(
+    portfolio: Portfolio,
+    data: any[],
+    callbacks: PortfolioStreamCallbacks
+): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolio, data }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to start stream');
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error('Response body is not readable');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+
+                const parts = line.split('\n');
+                if (parts.length < 2) continue;
+
+                const eventLine = parts[0];
+                const dataLine = parts[1];
+
+                const event = eventLine.replace('event: ', '');
+                const dataStr = dataLine.replace('data: ', '');
+
+                let data;
+                try {
+                    data = JSON.parse(dataStr);
+                } catch (e) {
+                    console.error('Failed to parse SSE data:', e);
+                    continue;
+                }
+
+                switch (event) {
+                    case 'prices_loaded':
+                        callbacks.onPricesLoaded?.(data);
+                        break;
+                    case 'nav_calculated':
+                        callbacks.onNavCalculated?.(data);
+                        break;
+                    case 'indicators_basic_calculated':
+                        callbacks.onIndicatorsBasicCalculated?.(data);
+                        break;
+                    case 'indicators_all_calculated':
+                        callbacks.onIndicatorsAllCalculated?.(data);
+                        break;
+                    case 'benchmark_comparison_calculated':
+                        callbacks.onBenchmarkComparisonCalculated?.(data);
+                        break;
+                    case 'complete':
+                        callbacks.onComplete?.(data);
+                        break;
+                    case 'error':
+                        callbacks.onError?.(data.error);
+                        break;
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+}

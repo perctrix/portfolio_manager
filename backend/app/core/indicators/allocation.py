@@ -155,7 +155,7 @@ def calculate_portfolio_volatility(weights: Dict[str, float], price_history: pd.
     w = np.array([weights[s] for s in symbols])
     w = w / np.sum(w)
 
-    returns = price_history[symbols].pct_change().dropna()
+    returns = price_history[symbols].pct_change(fill_method=None).dropna()
     if returns.empty:
         return 0.0
 
@@ -181,7 +181,7 @@ def calculate_mctr(weights: Dict[str, float], price_history: pd.DataFrame) -> Di
     w = np.array([weights[s] for s in symbols])
     w = w / np.sum(w)
 
-    returns = price_history[symbols].pct_change().dropna()
+    returns = price_history[symbols].pct_change(fill_method=None).dropna()
     if returns.empty:
         return {}
 
@@ -212,7 +212,7 @@ def calculate_risk_contribution_by_asset(weights: Dict[str, float], price_histor
     w = np.array([weights[s] for s in symbols])
     w = w / np.sum(w)
 
-    returns = price_history[symbols].pct_change().dropna()
+    returns = price_history[symbols].pct_change(fill_method=None).dropna()
     if returns.empty:
         return {}
 

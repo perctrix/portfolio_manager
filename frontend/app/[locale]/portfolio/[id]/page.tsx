@@ -21,7 +21,7 @@ import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import { Eye, EyeOff, Download, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData } from '@/lib/storage';
-import { calculateNav, calculateIndicators, calculateAllIndicators, getPriceHistory, updatePrice, getBenchmarkHistory, calculateBenchmarkComparison, BenchmarkComparison } from '@/lib/api';
+import { calculatePortfolioFullStream, getPriceHistory, getBenchmarkHistory, BenchmarkComparison } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -49,7 +49,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'positions', 'benchmarkPanel', 'benchmarkComparison']));
     const [loadingStep, setLoadingStep] = useState(0);
-    const totalLoadingSteps = 5;
+    const totalLoadingSteps = 6;
     const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
     const [showDepositPrompt, setShowDepositPrompt] = useState(false);
     const [dismissedDepositPrompt, setDismissedDepositPrompt] = useState(false);
@@ -66,82 +66,90 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         try {
             setLoading(true);
             setLoadingStep(0);
-            
+
             const portfolioData = getPortfolio(id);
             if (!portfolioData) {
                 throw new Error('Portfolio not found');
             }
 
             setPortfolio(portfolioData.meta);
-            // Sort transactions by datetime (most recent first for display)
             const sortedData = portfolioData.meta?.type === 'transaction'
                 ? portfolioData.data.map((item: any, index: number) => ({ ...item, _originalIndex: index }))
                     .sort((a, b) => {
                         const dateA = new Date(a.datetime || a.as_of);
                         const dateB = new Date(b.datetime || b.as_of);
-                        return dateB.getTime() - dateA.getTime(); // Descending order
+                        return dateB.getTime() - dateA.getTime();
                     })
                 : portfolioData.data;
             setHoldings(sortedData);
-            setLoadingStep(1);
 
             if (portfolioData.data.length > 0) {
-                const symbols = Array.from(new Set(portfolioData.data.map((row: any) => row.symbol).filter((s: string) => s && s !== 'CASH')));
-                for (const symbol of symbols) {
-                    await updatePrice(symbol).catch(err => console.warn(`Failed to update price for ${symbol}:`, err));
-                }
-                setLoadingStep(2);
+                await calculatePortfolioFullStream(
+                    portfolioData.meta,
+                    portfolioData.data,
+                    {
+                        onPricesLoaded: (data) => {
+                            setLoadingStep(1);
+                        },
 
-                const navResult = await calculateNav(portfolioData.meta, portfolioData.data);
-                setNavHistory(navResult.nav);
-                setCashHistory(navResult.cash || []);
+                        onNavCalculated: (data) => {
+                            setNavHistory(data.nav);
+                            setCashHistory(data.cash || []);
+                            setLoadingStep(2);
+                        },
 
-                const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
-                if (navResult.suggested_initial_deposit &&
-                    navResult.suggested_initial_deposit > 0 &&
-                    !isDismissed) {
-                    setSuggestedDeposit(navResult.suggested_initial_deposit);
-                    setShowDepositPrompt(true);
-                }
+                        onIndicatorsBasicCalculated: (data) => {
+                            setIndicators(data);
+                            setLoadingStep(3);
+                        },
 
-                if (navResult.failed_tickers && navResult.failed_tickers.length > 0) {
-                    alert(`${t('tickerWarning')}\n${navResult.failed_tickers.join(', ')}\n\n${t('tickerWarningHint')}`);
-                }
-                setLoadingStep(3);
+                        onIndicatorsAllCalculated: (data) => {
+                            setAllIndicators(data);
+                            setLoadingStep(4);
+                        },
 
-                const ind = await calculateIndicators(portfolioData.meta, portfolioData.data);
-                setIndicators(ind);
-                setLoadingStep(4);
+                        onBenchmarkComparisonCalculated: (data) => {
+                            setBenchmarkComparison(data.benchmarks);
+                            setLoadingBenchmarkComparison(false);
+                            setLoadingStep(5);
+                        },
 
-                const allInd = await calculateAllIndicators(portfolioData.meta, portfolioData.data);
-                setAllIndicators(allInd);
-                setLoadingStep(5);
+                        onComplete: (data) => {
+                            setLoadingStep(6);
 
-                loadBenchmarkComparison(portfolioData.meta, portfolioData.data);
+                            const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
+                            if (data.suggested_initial_deposit &&
+                                data.suggested_initial_deposit > 0 &&
+                                !isDismissed) {
+                                setSuggestedDeposit(data.suggested_initial_deposit);
+                                setShowDepositPrompt(true);
+                            }
+
+                            if (data.failed_tickers && data.failed_tickers.length > 0) {
+                                alert(`${t('tickerWarning')}\n${data.failed_tickers.join(', ')}\n\n${t('tickerWarningHint')}`);
+                            }
+
+                            setLoading(false);
+                        },
+
+                        onError: (error) => {
+                            console.error('Stream error:', error);
+                            alert(t('loadError') || 'Failed to load portfolio data');
+                            setLoading(false);
+                        }
+                    }
+                );
             } else {
                 setNavHistory([]);
                 setIndicators({});
                 setAllIndicators(null);
                 setBenchmarkComparison(null);
+                setLoading(false);
             }
 
         } catch (error) {
             console.error(error);
-        } finally {
             setLoading(false);
-        }
-    }
-
-    async function loadBenchmarkComparison(portfolioMeta: Portfolio, portfolioData: any[]) {
-        try {
-            setLoadingBenchmarkComparison(true);
-            const comparison = await calculateBenchmarkComparison(portfolioMeta, portfolioData);
-            setBenchmarkComparison(comparison);
-        } catch (error) {
-            console.error('Failed to load benchmark comparison:', error);
-            setBenchmarkComparison(null);
-        } finally {
-            setLoadingBenchmarkComparison(false);
         }
     }
 

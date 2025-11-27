@@ -152,7 +152,7 @@ class BenchmarkLoader:
         if prices.empty:
             return pd.Series(dtype=float)
 
-        returns = prices.pct_change().dropna()
+        returns = prices.pct_change(fill_method=None).dropna()
         return returns
 
     def load_all_benchmark_returns(self, start_date: Optional[pd.Timestamp] = None,
