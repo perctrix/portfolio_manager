@@ -3,11 +3,19 @@ This module aims to fetch financial (exchange rate) data from Yahoo Finance.
 """
 import logging
 import random
+import re
 import time
 from datetime import datetime
+from typing import Literal, get_args
 
 import pandas as pd
 import requests
+
+from app.core.config import config
+
+Interval = Literal['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']
+VALID_INTERVALS: tuple[str, ...] = get_args(Interval)
+DATE_PATTERN: re.Pattern[str] = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -70,21 +78,30 @@ def get_stealth_headers() -> dict:
 
     return headers
 
-def get_historical_close(ticker: str, start_date: str = None, interval: str = '1d') -> pd.DataFrame | float | None:
+def get_historical_close(ticker: str, start_date: str | None = None, interval: Interval = '1d') -> pd.DataFrame | float | None:
     """
     Downloads price data for a given ticker.
 
     Parameters:
     ticker (str): The ticker symbol to retrieve data for.
     start_date (str): Optional start date in format 'YYYY-MM-DD'. If None, fetches last 24h only and returns float.
-    interval (str): The time interval for the data. Defaults to '1d'.
+    interval (Interval): The time interval for the data. Defaults to '1d'.
 
     Returns:
     pd.DataFrame | float | None:
         - If start_date provided: DataFrame with columns [Open, High, Low, Close, Volume] and datetime index
         - If start_date is None: historical close price as float
         - None if error occurs
+
+    Raises:
+    ValueError: If interval is invalid or start_date format is incorrect.
     """
+    if interval not in VALID_INTERVALS:
+        raise ValueError(f"Invalid interval: {interval}. Must be one of {VALID_INTERVALS}")
+
+    if start_date is not None and not DATE_PATTERN.match(start_date):
+        raise ValueError(f"Invalid start_date format: {start_date}. Must be 'YYYY-MM-DD'")
+
     current_time: int = int(time.time())
 
     if start_date:
@@ -92,8 +109,9 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
     else:
         period1 = current_time - 86400
 
-    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={period1}&period2={current_time}&interval={interval}")
+    url = config.YAHOO_API_URL.format(
+        ticker=ticker, period1=period1, period2=current_time, interval=interval
+    )
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code != 200:
@@ -132,22 +150,30 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
         logger.error("Failed to fetch %s: %s", ticker, e)
         return None if not start_date else pd.DataFrame()
 
-def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: str = '1m') -> float | None:
+def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: Interval = '1m') -> float | None:
     """
     Downloads the latest closing price for a given ticker.
 
     Parameters:
-    ticker (str): The ticker symbol to retrieve the latest price for. Defaults to 'CADCNY=X'.
-    interval (str): The time interval for the data. Defaults to '1m'.
+    currency_1 (str): The base currency code.
+    currency_2 (str): The quote currency code.
+    interval (Interval): The time interval for the data. Defaults to '1m'.
 
     Returns:
     float | None: The latest closing price for the given ticker, or None if an error occurs.
+
+    Raises:
+    ValueError: If interval is invalid.
     """
+    if interval not in VALID_INTERVALS:
+        raise ValueError(f"Invalid interval: {interval}. Must be one of {VALID_INTERVALS}")
+
     ticker = f"{currency_1}{currency_2}=X"
     current_time: int = int(time.time())
     yesterday_time: int = current_time - 86400
-    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={yesterday_time}&period2={current_time}&interval={interval}")
+    url = config.YAHOO_API_URL.format(
+        ticker=ticker, period1=yesterday_time, period2=current_time, interval=interval
+    )
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code == 200:
