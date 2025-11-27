@@ -291,8 +291,6 @@ portfolio_manager/
 │   │   ├── fetch_data.py             # Yahoo Finance data fetcher
 │   │   ├── benchmarks.json           # Benchmark configurations
 │   │   └── prices/                   # Price data cache
-│   ├── scripts/
-│   │   └── stress_test.py            # SSE endpoint stress test
 │   └── main.py                       # FastAPI application
 └── frontend/
     ├── app/
