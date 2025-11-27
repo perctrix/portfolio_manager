@@ -1,11 +1,15 @@
 """
 This module aims to fetch financial (exchange rate) data from Yahoo Finance.
 """
-import time
+import logging
 import random
-import requests
-import pandas as pd
+import time
 from datetime import datetime
+
+import pandas as pd
+import requests
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 def get_stealth_headers() -> dict:
     """
@@ -89,12 +93,14 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
     else:
         period1 = current_time - 86400
 
-    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={period1}&period2={current_time}&interval={interval}")
+    # url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
+    #        f"?period1={period1}&period2={current_time}&interval={interval}")
+    url = (f"https://yahoo-proxy-eight.vercel.app/api/yahoo/chart/?ticker={ticker}"
+           f"&period1={period1}&period2={current_time}&interval={interval}")
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code != 200:
-            print(f"Error: HTTP {response.status_code} for {ticker}")
+            logger.error("HTTP %d for %s", response.status_code, ticker)
             return None if not start_date else pd.DataFrame()
 
         data = response.json()
@@ -126,7 +132,7 @@ def get_historical_close(ticker: str, start_date: str = None, interval: str = '1
             return None
 
     except (requests.RequestException, KeyError, ValueError, TypeError) as e:
-        print(f"Error: {e}")
+        logger.error("Failed to fetch %s: %s", ticker, e)
         return None if not start_date else pd.DataFrame()
 
 def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: str = '1m') -> float | None:
@@ -157,7 +163,7 @@ def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: str 
                     return price
         return None
     except (requests.RequestException, KeyError, ValueError, TypeError) as e:
-        print(f"Error: {e}")
+        logger.error("Failed to fetch %s%s: %s", currency_1, currency_2, e)
         return None
 
 if __name__ == "__main__":
