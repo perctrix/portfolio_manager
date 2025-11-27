@@ -12,7 +12,10 @@ export default function Footer() {
           <div>
             {t('copyright')} &copy; {new Date().getFullYear()}{' '}
             <Link
-              href="https://bosseconbizchamps.org">
+              href="https://bosseconbizchamps.org"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
                 BOSSEconBizChamps
             </Link>
           </div>
