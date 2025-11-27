@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface AddTransactionModalProps {
@@ -11,6 +12,7 @@ interface AddTransactionModalProps {
 }
 
 export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: AddTransactionModalProps) {
+    const t = useTranslations('TransactionModal');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [symbol, setSymbol] = useState('');
     const [side, setSide] = useState<'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW'>('BUY');
@@ -62,7 +64,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
             onClose();
         } catch (error) {
             console.error(error);
-            alert('Failed to add transaction');
+            alert(t('addError'));
         } finally {
             setIsSubmitting(false);
         }
@@ -71,10 +73,10 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                <h2 className="text-xl font-bold mb-4">{initialData ? 'Edit Transaction' : 'Add Transaction'}</h2>
+                <h2 className="text-xl font-bold mb-4">{initialData ? t('editTitle') : t('addTitle')}</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('dateTime')}</label>
                         <input
                             type="datetime-local"
                             name="datetime"
@@ -85,7 +87,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('type')}</label>
                         <select
                             value={side}
                             onChange={(e) => setSide(e.target.value as any)}
@@ -100,7 +102,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
 
                     {(side === 'BUY' || side === 'SELL') && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Symbol</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('symbol')}</label>
                             <TickerAutocomplete
                                 value={symbol}
                                 onChange={setSymbol}
@@ -112,7 +114,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                     {(side === 'BUY' || side === 'SELL') ? (
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('quantity')}</label>
                                 <input
                                     type="number"
                                     step="any"
@@ -124,7 +126,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('price')}</label>
                                 <input
                                     type="number"
                                     step="any"
@@ -138,7 +140,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                         </div>
                     ) : (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('amount')}</label>
                             <input
                                 type="number"
                                 step="any"
@@ -152,7 +154,7 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                         </div>
                     )}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Fee</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('fee')}</label>
                         <input
                             type="number"
                             step="any"
@@ -164,13 +166,13 @@ export function AddTransactionModal({ isOpen, onClose, onSubmit, initialData }: 
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">{t('cancel')}</button>
                         <button
                             type="submit"
                             disabled={isSubmitting}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? (initialData ? 'Updating...' : 'Adding...') : (initialData ? 'Update Transaction' : 'Add Transaction')}
+                            {isSubmitting ? (initialData ? t('updating') : t('adding')) : (initialData ? t('update') : t('add'))}
                         </button>
                     </div>
                 </form>

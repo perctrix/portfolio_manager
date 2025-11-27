@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { TickerAutocomplete } from './TickerAutocomplete';
 
 interface EditSnapshotModalProps {
@@ -11,6 +12,7 @@ interface EditSnapshotModalProps {
 }
 
 export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] }: EditSnapshotModalProps) {
+    const t = useTranslations('SnapshotModal');
     const [positions, setPositions] = useState(initialData.length > 0 ? initialData : [{ symbol: '', quantity: 0, cost_basis: 0 }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,7 +48,7 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
             onClose();
         } catch (error) {
             console.error(error);
-            alert('Failed to update positions');
+            alert(t('saveError'));
         } finally {
             setIsSubmitting(false);
         }
@@ -56,8 +58,8 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">Edit Positions (Snapshot)</h2>
-                    <button type="button" onClick={addRow} className="text-sm text-blue-600 hover:underline">+ Add Row</button>
+                    <h2 className="text-xl font-bold">{t('title')}</h2>
+                    <button type="button" onClick={addRow} className="text-sm text-blue-600 hover:underline">{t('addRow')}</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,7 +67,7 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
                         {positions.map((pos, index) => (
                             <div key={index} className="flex gap-3 items-end">
                                 <div className="flex-1">
-                                    <label className="block text-xs text-gray-500 mb-1">Symbol</label>
+                                    <label className="block text-xs text-gray-500 mb-1">{t('symbol')}</label>
                                     <TickerAutocomplete
                                         value={pos.symbol}
                                         onChange={(value) => updateRow(index, 'symbol', value)}
@@ -73,7 +75,7 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+                                    <label className="block text-xs text-gray-500 mb-1">{t('quantity')}</label>
                                     <input
                                         type="number"
                                         step="any"
@@ -83,7 +85,7 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
                                     />
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-xs text-gray-500 mb-1">Cost Basis (Total)</label>
+                                    <label className="block text-xs text-gray-500 mb-1">{t('costBasisTotal')}</label>
                                     <input
                                         type="number"
                                         step="any"
@@ -104,13 +106,13 @@ export function EditSnapshotModal({ isOpen, onClose, onSubmit, initialData = [] 
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">{t('cancel')}</button>
                         <button
                             type="submit"
                             disabled={isSubmitting}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {isSubmitting ? 'Saving...' : 'Save Changes'}
+                            {isSubmitting ? t('saving') : t('saveChanges')}
                         </button>
                     </div>
                 </form>

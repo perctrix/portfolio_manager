@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { getBenchmarkList, Benchmark } from '@/lib/api';
 
@@ -10,6 +11,7 @@ interface BenchmarkPanelProps {
 }
 
 export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: BenchmarkPanelProps) {
+    const t = useTranslations('BenchmarkPanel');
     const [benchmarks, setBenchmarks] = useState<Benchmark[]>([]);
     const [loading, setLoading] = useState(true);
     const [categoryExpanded, setCategoryExpanded] = useState<{ [key: string]: boolean }>({
@@ -42,9 +44,9 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: Benchm
     }, {} as { [key: string]: Benchmark[] });
 
     const categoryNames: { [key: string]: string } = {
-        us_indices: 'US Indices',
-        european_indices: 'European Indices',
-        asian_indices: 'Asian Indices',
+        us_indices: t('usIndices'),
+        european_indices: t('europeanIndices'),
+        asian_indices: t('asianIndices'),
     };
 
     const toggleCategory = (category: string) => {
@@ -60,9 +62,9 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: Benchm
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                     <Activity className="w-5 h-5 text-green-600" />
-                    <h2 className="text-lg font-semibold">Benchmark Comparison</h2>
+                    <h2 className="text-lg font-semibold">{t('title')}</h2>
                 </div>
-                <p className="text-sm text-gray-400">Loading benchmarks...</p>
+                <p className="text-sm text-gray-400">{t('loading')}</p>
             </div>
         );
     }
@@ -71,10 +73,10 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: Benchm
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-semibold">Benchmark Comparison</h2>
+                <h2 className="text-lg font-semibold">{t('title')}</h2>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-                Select market indices to compare against your portfolio performance.
+                {t('description')}
             </p>
 
             <div className="space-y-3">
@@ -89,7 +91,7 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: Benchm
                                 {categoryNames[category] || category}
                             </span>
                             <span className="text-gray-400 text-xs">
-                                {items.filter(b => selectedBenchmarks.has(b.symbol)).length}/{items.length} selected
+                                {items.filter(b => selectedBenchmarks.has(b.symbol)).length}/{items.length} {t('selected')}
                             </span>
                         </button>
 
@@ -125,13 +127,13 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark }: Benchm
                 <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">
-                            {selectedBenchmarks.size} benchmark{selectedBenchmarks.size > 1 ? 's' : ''} selected
+                            {selectedBenchmarks.size} {selectedBenchmarks.size > 1 ? t('benchmarksSelected') : t('benchmarkSelected')}
                         </span>
                         <button
                             onClick={handleClearAll}
                             className="text-green-600 hover:text-green-700 font-medium transition-colors"
                         >
-                            Clear all
+                            {t('clearAll')}
                         </button>
                     </div>
                 </div>
