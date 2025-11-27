@@ -5,5 +5,8 @@ node_modules/**
 # Runtime data (temporary portfolios and price cache)
 backend/data/meta/portfolios.json
 backend/data/portfolios/*.csv
-backend/data/prices/*.csv
+backend/data/prices/**
 .env
+.vercel
+.next
+settings.local.json
