@@ -1,11 +1,15 @@
-from ibapi.client import EClient
-from ibapi.wrapper import EWrapper
-from ibapi.contract import Contract
-import pandas as pd
-import time
+import logging
 import threading
+import time
 from collections import defaultdict
 from typing import Dict, List
+
+import pandas as pd
+from ibapi.client import EClient
+from ibapi.contract import Contract
+from ibapi.wrapper import EWrapper
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class IBDataDownloader(EClient, EWrapper):
@@ -21,7 +25,7 @@ class IBDataDownloader(EClient, EWrapper):
 
     def error(self, reqId: int, errorCode: int, errorString: str, advancedOrderReject: str = "") -> None:
         if errorCode not in [2104, 2106, 2158, 2176]:
-            print(f"Error {reqId}: {errorCode} - {errorString}")
+            logger.error("IB error %d: %d - %s", reqId, errorCode, errorString)
             self.errors[reqId] = f"{errorCode}: {errorString}"
             self.data_ready[reqId] = True
 

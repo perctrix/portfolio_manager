@@ -1,8 +1,12 @@
-import pandas as pd
-import numpy as np
-import talib as ta
+import logging
 from typing import Tuple
-from scipy.fft import fft, ifft, fftfreq
+
+import numpy as np
+import pandas as pd
+import talib as ta
+from scipy.fft import fft, fftfreq, ifft
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 def calculate_sma(close: np.ndarray, period: int) -> np.ndarray:
     """Calculate Simple Moving Average"""
@@ -334,6 +338,6 @@ def calculate_technical_indicators_batch(data: pd.DataFrame) -> pd.DataFrame:
             result['FFT_63'] = apply_fft_filter_rolling(result, 63)
 
         except Exception as e:
-            print(f"Warning: Failed to calculate some indicators: {e}")
+            logger.warning("Failed to calculate some indicators: %s", e)
 
     return result
