@@ -11,6 +11,8 @@ from typing import Literal, get_args
 import pandas as pd
 import requests
 
+from app.core.config import config
+
 Interval = Literal['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']
 VALID_INTERVALS: tuple[str, ...] = get_args(Interval)
 DATE_PATTERN: re.Pattern[str] = re.compile(r'^\d{4}-\d{2}-\d{2}$')
@@ -107,8 +109,9 @@ def get_historical_close(ticker: str, start_date: str | None = None, interval: I
     else:
         period1 = current_time - 86400
 
-    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={period1}&period2={current_time}&interval={interval}")
+    url = config.YAHOO_API_URL.format(
+        ticker=ticker, period1=period1, period2=current_time, interval=interval
+    )
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code != 200:
@@ -168,8 +171,9 @@ def get_latest_foreign_currency(currency_1: str, currency_2: str, interval: Inte
     ticker = f"{currency_1}{currency_2}=X"
     current_time: int = int(time.time())
     yesterday_time: int = current_time - 86400
-    url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}"
-           f"?period1={yesterday_time}&period2={current_time}&interval={interval}")
+    url = config.YAHOO_API_URL.format(
+        ticker=ticker, period1=yesterday_time, period2=current_time, interval=interval
+    )
     try:
         response = requests.get(url, headers=get_stealth_headers(), timeout=30)
         if response.status_code == 200:
