@@ -15,10 +15,10 @@ export function LoadingProgress({ currentStep, totalSteps, stepLabels }: Loading
     
     const defaultLabels = [
         t('loadingPortfolio'),
-        t('updatingPrices'),
+        t('loadingPrices'),
         t('calculatingNav'),
-        t('computingIndicators'),
-        t('loadingAllMetrics'),
+        t('computingBasicIndicators'),
+        t('computingAllMetrics'),
         t('comparingBenchmarks')
     ];
     
