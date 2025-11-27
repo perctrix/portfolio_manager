@@ -1,8 +1,12 @@
-import pandas as pd
 import json
+import logging
 import os
-from typing import Dict, List, Optional
 from pathlib import Path
+from typing import Dict, List, Optional
+
+import pandas as pd
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class BenchmarkLoader:
@@ -71,7 +75,7 @@ class BenchmarkLoader:
             return prices_series.dropna()
 
         except Exception as e:
-            print(f"Error loading benchmark {symbol}: {e}")
+            logger.error("Failed to load benchmark %s: %s", symbol, e)
             return pd.Series(dtype=float)
 
     def load_all_benchmarks(self, start_date: Optional[pd.Timestamp] = None,
