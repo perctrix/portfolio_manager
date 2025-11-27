@@ -252,43 +252,6 @@ sequenceDiagram
 - `GET /api/scheduler/status` - Get scheduler status and next run times
 - `POST /api/scheduler/update-now` - Manually trigger benchmark update
 
-## Testing
-
-### Stress Test
-
-A stress test script is provided to evaluate the SSE endpoint performance:
-
-```bash
-cd backend
-python scripts/stress_test.py --base-url http://localhost:8000 --concurrency 5 --requests 20 --portfolio-size medium
-```
-
-Options:
-- `--base-url` - API base URL (default: http://localhost:8000)
-- `--concurrency` - Number of concurrent requests (default: 5)
-- `--requests` - Total number of requests (default: 20)
-- `--portfolio-size` - Test portfolio size: small, medium, large (default: medium)
-- `--timeout` - Request timeout in seconds (default: 120)
-
-Example output:
-```
-============================================================
-STRESS TEST RESULTS
-============================================================
-
-Requests Summary:
-  Total:      20
-  Successful: 20
-  Failed:     0
-  Success Rate: 100.0%
-  Throughput: 0.43 req/s
-
-Request Duration (ms):
-  Min:    4927.9
-  Mean:   9516.6
-  P95:    14107.9
-```
-
 ## Data Storage
 
 All data is stored locally in `backend/data/`:
