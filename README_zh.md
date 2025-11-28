@@ -125,67 +125,6 @@
 
 `/api/calculate/portfolio-full` 端点使用Server-Sent Events (SSE)，结合优化的并行I/O和请求级缓存，实现最佳性能。
 
-```mermaid
-sequenceDiagram
-    participant Client as 客户端
-    participant API as FastAPI端点
-    participant Cache as 请求缓存
-    participant Yahoo as Yahoo Finance API
-    participant Engine as PortfolioEngine
-
-    Client->>API: POST /calculate/portfolio-full
-
-    rect rgb(230, 245, 255)
-        Note over API,Yahoo: 阶段1: 并行I/O
-        par 加载组合价格
-            API->>Yahoo: get_price_history(AAPL)
-            API->>Yahoo: get_price_history(MSFT)
-            API->>Yahoo: get_price_history(...)
-        and 加载基准价格
-            API->>Yahoo: get_price_history(^GSPC)
-            API->>Yahoo: get_price_history(^DJI)
-            API->>Yahoo: get_price_history(...)
-        end
-        Yahoo-->>API: 价格DataFrames
-    end
-
-    API->>Cache: 存储price_cache
-    API-->>Client: SSE: prices_loaded
-
-    rect rgb(255, 245, 230)
-        Note over API,Engine: 阶段2: NAV计算
-        API->>Engine: PortfolioEngine(portfolio, data)
-        API->>Engine: set_price_cache(cache)
-        Engine->>Cache: 使用缓存价格
-        Engine-->>API: NAV历史
-    end
-
-    API-->>Client: SSE: nav_calculated
-
-    rect rgb(230, 255, 230)
-        Note over API,Engine: 阶段3: 并行计算
-        par 基本指标
-            API->>Engine: get_indicators()
-            Engine->>Cache: 使用_base_data_cache
-        and 基准比较
-            API->>Cache: load_benchmark_returns_from_cache()
-        end
-        Engine-->>API: 结果
-    end
-
-    API-->>Client: SSE: indicators_basic_calculated
-    API-->>Client: SSE: benchmark_comparison_calculated
-
-    rect rgb(245, 230, 255)
-        Note over API,Engine: 阶段4: 全部指标
-        API->>Engine: get_all_indicators()
-        Engine->>Cache: 复用_base_data_cache
-        Engine-->>API: 79个指标
-    end
-
-    API-->>Client: SSE: indicators_all_calculated
-    API-->>Client: SSE: complete
-```
 
 **关键优化：**
 

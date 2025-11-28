@@ -125,67 +125,6 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 
 The `/api/calculate/portfolio-full` endpoint uses Server-Sent Events (SSE) with optimized parallel I/O and request-scoped caching for maximum performance.
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API as FastAPI Endpoint
-    participant Cache as Request Cache
-    participant Yahoo as Yahoo Finance API
-    participant Engine as PortfolioEngine
-
-    Client->>API: POST /calculate/portfolio-full
-
-    rect rgb(230, 245, 255)
-        Note over API,Yahoo: Phase 1: Parallel I/O
-        par Load Portfolio Prices
-            API->>Yahoo: get_price_history(AAPL)
-            API->>Yahoo: get_price_history(MSFT)
-            API->>Yahoo: get_price_history(...)
-        and Load Benchmark Prices
-            API->>Yahoo: get_price_history(^GSPC)
-            API->>Yahoo: get_price_history(^DJI)
-            API->>Yahoo: get_price_history(...)
-        end
-        Yahoo-->>API: Price DataFrames
-    end
-
-    API->>Cache: Store price_cache
-    API-->>Client: SSE: prices_loaded
-
-    rect rgb(255, 245, 230)
-        Note over API,Engine: Phase 2: NAV Calculation
-        API->>Engine: PortfolioEngine(portfolio, data)
-        API->>Engine: set_price_cache(cache)
-        Engine->>Cache: Use cached prices
-        Engine-->>API: NAV history
-    end
-
-    API-->>Client: SSE: nav_calculated
-
-    rect rgb(230, 255, 230)
-        Note over API,Engine: Phase 3: Parallel Calculations
-        par Basic Indicators
-            API->>Engine: get_indicators()
-            Engine->>Cache: Use _base_data_cache
-        and Benchmark Comparison
-            API->>Cache: load_benchmark_returns_from_cache()
-        end
-        Engine-->>API: Results
-    end
-
-    API-->>Client: SSE: indicators_basic_calculated
-    API-->>Client: SSE: benchmark_comparison_calculated
-
-    rect rgb(245, 230, 255)
-        Note over API,Engine: Phase 4: All Indicators
-        API->>Engine: get_all_indicators()
-        Engine->>Cache: Reuse _base_data_cache
-        Engine-->>API: 79 indicators
-    end
-
-    API-->>Client: SSE: indicators_all_calculated
-    API-->>Client: SSE: complete
-```
 
 **Key Optimizations:**
 
