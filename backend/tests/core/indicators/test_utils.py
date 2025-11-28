@@ -33,7 +33,7 @@ class TestRollingNormalize:
         result = rolling_normalize(single_value_series, window=21)
         assert len(result) == 1
         # With single value, std is 0, so normalized value should be 0 (due to eps)
-        assert pd.isna(result.iloc[0])
+        assert abs(result.iloc[0]) < 1e-6
 
     def test_rolling_normalize_constant_series(self):
         """Test with constant values (zero variance)"""
