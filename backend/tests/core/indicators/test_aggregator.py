@@ -3,6 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from app.core.indicators import aggregator as agg_module
+from app.core.indicators import calculate_basic_metrics
 
 
 class TestBasicPortfolioIndicators:
@@ -317,7 +318,7 @@ class TestFullIndicatorCalculation:
     def test_backward_compatibility(self, sample_nav):
         """Test backward compatibility functions"""
         # Test calculate_basic_metrics alias
-        result = agg_module.calculate_basic_metrics(sample_nav)
+        result = calculate_basic_metrics(sample_nav)
 
         assert isinstance(result, dict)
         assert 'total_return' in result

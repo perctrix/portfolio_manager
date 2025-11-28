@@ -10,7 +10,7 @@ class TestMovingAverages:
 
     def test_sma_basic(self):
         """Test basic SMA calculation"""
-        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109])
+        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109], dtype=np.float64)
         result = technical_module.calculate_sma(close, period=5)
 
         assert isinstance(result, np.ndarray)
@@ -18,7 +18,7 @@ class TestMovingAverages:
 
     def test_ema_basic(self):
         """Test basic EMA calculation"""
-        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109])
+        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109], dtype=np.float64)
         result = technical_module.calculate_ema(close, period=5)
 
         assert isinstance(result, np.ndarray)
@@ -26,7 +26,7 @@ class TestMovingAverages:
 
     def test_wma_basic(self):
         """Test basic WMA calculation"""
-        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109])
+        close = np.array([100, 102, 104, 103, 105, 107, 106, 108, 110, 109], dtype=np.float64)
         result = technical_module.calculate_wma(close, period=5)
 
         assert isinstance(result, np.ndarray)
