@@ -64,14 +64,13 @@ export default function Home() {
     e.target.value = '';
   }
 
-  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType) {
+  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string) {
     // Generate new portfolio ID with random suffix to prevent collisions
     const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
-    const baseName = pendingCSVFile?.name.replace(/\.csv$/i, '') || 'Imported Portfolio';
 
     const meta: Portfolio = {
       id,
-      name: baseName,
+      name: portfolioName,
       type: portfolioType,
       base_currency: 'USD',
       created_at: new Date().toISOString(),

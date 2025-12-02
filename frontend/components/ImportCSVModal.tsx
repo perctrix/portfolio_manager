@@ -22,7 +22,7 @@ import {
 interface ImportCSVModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: Record<string, any>[], portfolioType: PortfolioType) => void;
+  onImport: (data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string) => void;
   initialFile?: File | null;
 }
 
@@ -39,6 +39,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const [portfolioType, setPortfolioType] = useState<PortfolioType>('transaction');
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [portfolioName, setPortfolioName] = useState<string>('');
   const [warnings, setWarnings] = useState<DataValidationWarning[]>([]);
 
   // Track processed file to prevent duplicate processing
@@ -51,6 +52,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     setPortfolioType('transaction');
     setError(null);
     setFileName('');
+    setPortfolioName('');
     setWarnings([]);
     processedFileRef.current = null;
   }, []);
@@ -64,6 +66,8 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const processFile = useCallback(async (file: File) => {
     setError(null);
     setFileName(file.name);
+    // Set default portfolio name from filename (without .csv extension)
+    setPortfolioName(file.name.replace(/\.csv$/i, ''));
 
     // File size validation
     if (file.size > MAX_FILE_SIZE) {
@@ -186,7 +190,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
 
     // Clear warnings and proceed with import
     setWarnings([]);
-    onImport(convertedData, portfolioType);
+    onImport(convertedData, portfolioType, portfolioName.trim() || 'Imported Portfolio');
     handleClose();
   };
 
@@ -244,6 +248,20 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 <span>{t('fileLoaded', { name: fileName, rows: csvData.rows.length })}</span>
+              </div>
+
+              {/* Portfolio name input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('portfolioName')}
+                </label>
+                <input
+                  type="text"
+                  value={portfolioName}
+                  onChange={(e) => setPortfolioName(e.target.value)}
+                  placeholder={t('portfolioNamePlaceholder')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
               </div>
 
               {/* Portfolio type selector */}

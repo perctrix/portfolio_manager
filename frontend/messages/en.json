@@ -274,6 +274,8 @@
     "dropzone": "Click to select a CSV file",
     "dropzoneHint": "or drag and drop here",
     "fileLoaded": "{name} loaded ({rows} rows)",
+    "portfolioName": "Portfolio Name",
+    "portfolioNamePlaceholder": "e.g., My Core Holdings",
     "portfolioType": "Portfolio Type",
     "typeTransaction": "Transaction History",
     "typeSnapshot": "Snapshot (Holdings)",
