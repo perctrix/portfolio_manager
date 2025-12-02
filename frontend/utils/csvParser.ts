@@ -77,11 +77,13 @@ export function parseCSV(content: string): ParsedCSV {
 
 /**
  * Parse a single CSV line, handling quoted values
+ * Handles unclosed quotes gracefully by treating them as literal characters
  */
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
+  let quoteStart = -1;
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
@@ -89,16 +91,20 @@ function parseCSVLine(line: string): string[] {
 
     if (inQuotes) {
       if (char === '"' && nextChar === '"') {
+        // Escaped quote
         current += '"';
         i++; // Skip next quote
       } else if (char === '"') {
+        // End of quoted section
         inQuotes = false;
       } else {
         current += char;
       }
     } else {
       if (char === '"') {
+        // Start of quoted section
         inQuotes = true;
+        quoteStart = i;
       } else if (char === ',') {
         result.push(current.trim());
         current = '';
@@ -107,6 +113,22 @@ function parseCSVLine(line: string): string[] {
       }
     }
   }
+
+  // Handle unclosed quotes: treat the opening quote as a literal character
+  if (inQuotes && quoteStart >= 0) {
+    // Re-parse from quote start, treating quote as literal
+    current = '';
+    for (let i = quoteStart; i < line.length; i++) {
+      const char = line[i];
+      if (char === ',') {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+  }
+
   result.push(current.trim());
 
   return result;
@@ -292,7 +314,7 @@ export function convertToPortfolioData(
     for (const [csvColumn, value] of Object.entries(row)) {
       const targetField = fieldMap.get(csvColumn);
       if (targetField) {
-        record[targetField] = convertValue(value, targetField, portfolioType);
+        record[targetField] = convertValue(value, targetField);
       }
     }
 
@@ -305,10 +327,100 @@ export function convertToPortfolioData(
   });
 }
 
+// Valid transaction sides
+const VALID_SIDES = ['BUY', 'SELL', 'DEPOSIT', 'WITHDRAW'];
+
+export interface DataValidationWarning {
+  row: number;
+  field: string;
+  value: any;
+  message: string;
+}
+
+/**
+ * Validate converted portfolio data and return warnings
+ */
+export function validateConvertedData(
+  data: Record<string, any>[],
+  portfolioType: PortfolioType
+): DataValidationWarning[] {
+  const warnings: DataValidationWarning[] = [];
+
+  data.forEach((record, index) => {
+    const rowNum = index + 1;
+
+    // Check for empty symbol
+    if (!record.symbol || record.symbol.trim() === '') {
+      warnings.push({
+        row: rowNum,
+        field: 'symbol',
+        value: record.symbol,
+        message: 'Empty symbol',
+      });
+    }
+
+    // Check for negative or zero quantity
+    if (typeof record.quantity === 'number' && record.quantity <= 0) {
+      warnings.push({
+        row: rowNum,
+        field: 'quantity',
+        value: record.quantity,
+        message: 'Quantity must be positive',
+      });
+    }
+
+    // Check for negative price
+    if (typeof record.price === 'number' && record.price < 0) {
+      warnings.push({
+        row: rowNum,
+        field: 'price',
+        value: record.price,
+        message: 'Price cannot be negative',
+      });
+    }
+
+    // Check for negative fee
+    if (typeof record.fee === 'number' && record.fee < 0) {
+      warnings.push({
+        row: rowNum,
+        field: 'fee',
+        value: record.fee,
+        message: 'Fee cannot be negative',
+      });
+    }
+
+    // For transactions, validate side
+    if (portfolioType === 'transaction') {
+      if (record.side && !VALID_SIDES.includes(record.side)) {
+        warnings.push({
+          row: rowNum,
+          field: 'side',
+          value: record.side,
+          message: `Unrecognized transaction type: ${record.side}`,
+        });
+      }
+    }
+
+    // For snapshots, check cost_basis
+    if (portfolioType === 'snapshot') {
+      if (typeof record.cost_basis === 'number' && record.cost_basis < 0) {
+        warnings.push({
+          row: rowNum,
+          field: 'cost_basis',
+          value: record.cost_basis,
+          message: 'Cost basis cannot be negative',
+        });
+      }
+    }
+  });
+
+  return warnings;
+}
+
 /**
  * Convert string value to appropriate type
  */
-function convertValue(value: string, field: TargetField, portfolioType: PortfolioType): any {
+function convertValue(value: string, field: TargetField): any {
   const trimmed = value.trim();
 
   switch (field) {

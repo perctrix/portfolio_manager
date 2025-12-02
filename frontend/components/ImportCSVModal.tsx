@@ -51,10 +51,10 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     processedFileRef.current = null;
   }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     resetState();
     onClose();
-  };
+  }, [resetState, onClose]);
 
   // Process file
   const processFile = useCallback(async (file: File) => {
@@ -115,7 +115,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
