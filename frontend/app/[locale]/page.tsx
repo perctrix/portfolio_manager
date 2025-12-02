@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio } from '@/types';
-import { getAllPortfolios, savePortfolio } from '@/lib/storage';
+import { Portfolio, PortfolioType } from '@/types';
+import { getAllPortfolios, savePortfolio, getPortfolio } from '@/lib/storage';
+import { ImportCSVModal } from '@/components/ImportCSVModal';
 
 export default function Home() {
   const t = useTranslations('Home');
   const locale = useLocale();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [pendingCSVFile, setPendingCSVFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadPortfolios();
@@ -30,6 +33,17 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+
+    if (isCSV) {
+      // Open CSV modal for column mapping
+      setPendingCSVFile(file);
+      setShowCSVModal(true);
+      e.target.value = '';
+      return;
+    }
+
+    // Handle JSON import
     try {
       const text = await file.text();
       const importData = JSON.parse(text);
@@ -50,6 +64,63 @@ export default function Home() {
     e.target.value = '';
   }
 
+  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string, targetPortfolioId?: string) {
+    if (targetPortfolioId) {
+      // Append to existing portfolio
+      const existingPortfolio = getPortfolio(targetPortfolioId);
+      if (existingPortfolio) {
+        let mergedData: Record<string, any>[];
+
+        if (existingPortfolio.meta.type === 'transaction') {
+          // For transactions: merge and sort by datetime, detect duplicates
+          const existingSet = new Set(
+            existingPortfolio.data.map(r =>
+              `${r.datetime}|${r.symbol}|${r.side}|${r.quantity}|${r.price}`
+            )
+          );
+          const newRecords = data.filter(r =>
+            !existingSet.has(`${r.datetime}|${r.symbol}|${r.side}|${r.quantity}|${r.price}`)
+          );
+          mergedData = [...existingPortfolio.data, ...newRecords]
+            .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+        } else {
+          // For snapshots: newer data overrides older for same symbol
+          const symbolMap = new Map<string, Record<string, any>>();
+          // Add existing data first
+          for (const record of existingPortfolio.data) {
+            symbolMap.set(record.symbol, record);
+          }
+          // Override with new data
+          for (const record of data) {
+            symbolMap.set(record.symbol, record);
+          }
+          mergedData = Array.from(symbolMap.values());
+        }
+
+        savePortfolio(targetPortfolioId, {
+          meta: existingPortfolio.meta,
+          data: mergedData,
+        });
+      }
+    } else {
+      // Create new portfolio
+      const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+
+      const meta: Portfolio = {
+        id,
+        name: portfolioName,
+        type: portfolioType,
+        base_currency: currency,
+        created_at: new Date().toISOString(),
+      };
+
+      savePortfolio(id, { meta, data });
+    }
+
+    loadPortfolios();
+    setPendingCSVFile(null);
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
       <div className="max-w-4xl mx-auto">
@@ -60,7 +131,7 @@ export default function Home() {
               {t('importPortfolio')}
               <input
                 type="file"
-                accept=".json"
+                accept=".json,.csv"
                 className="hidden"
                 onChange={handleImport}
               />
@@ -116,6 +187,17 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <ImportCSVModal
+        isOpen={showCSVModal}
+        onClose={() => {
+          setShowCSVModal(false);
+          setPendingCSVFile(null);
+        }}
+        onImport={handleCSVImport}
+        initialFile={pendingCSVFile}
+        existingPortfolios={portfolios}
+      />
     </main>
   );
 }
