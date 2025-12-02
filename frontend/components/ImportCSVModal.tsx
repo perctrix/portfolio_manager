@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Upload, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
-import { PortfolioType } from '@/types';
+import { Portfolio, PortfolioType } from '@/types';
 import {
   parseCSV,
   autoDetectMappings,
@@ -22,8 +22,9 @@ import {
 interface ImportCSVModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string) => void;
+  onImport: (data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string, targetPortfolioId?: string) => void;
   initialFile?: File | null;
+  existingPortfolios?: Portfolio[];
 }
 
 const SUPPORTED_CURRENCIES = ['USD', 'CNY', 'EUR', 'GBP', 'JPY', 'HKD', 'CAD', 'AUD', 'CHF', 'SGD'] as const;
@@ -32,7 +33,7 @@ type Step = 'upload' | 'mapping' | 'preview';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: ImportCSVModalProps) {
+export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existingPortfolios = [] }: ImportCSVModalProps) {
   const t = useTranslations('ImportCSV');
 
   const [step, setStep] = useState<Step>('upload');
@@ -44,6 +45,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const [portfolioName, setPortfolioName] = useState<string>('');
   const [currency, setCurrency] = useState<string>('USD');
   const [warnings, setWarnings] = useState<DataValidationWarning[]>([]);
+  const [targetPortfolioId, setTargetPortfolioId] = useState<string>('new');
 
   // Track processed file to prevent duplicate processing
   const processedFileRef = useRef<File | null>(null);
@@ -58,6 +60,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     setPortfolioName('');
     setCurrency('USD');
     setWarnings([]);
+    setTargetPortfolioId('new');
     processedFileRef.current = null;
   }, []);
 
@@ -139,6 +142,24 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     e.target.value = '';
   };
 
+  const handleTargetChange = (newTargetId: string) => {
+    setError(null);
+    setTargetPortfolioId(newTargetId);
+
+    if (newTargetId !== 'new') {
+      // When selecting existing portfolio, use its type and currency
+      const selectedPortfolio = existingPortfolios.find(p => p.id === newTargetId);
+      if (selectedPortfolio) {
+        setPortfolioType(selectedPortfolio.type);
+        setCurrency(selectedPortfolio.base_currency);
+        if (csvData) {
+          const newMappings = autoDetectMappings(csvData.headers, selectedPortfolio.type);
+          setMappings(newMappings);
+        }
+      }
+    }
+  };
+
   const handleTypeChange = (newType: PortfolioType) => {
     setError(null); // Clear error on type change
     setPortfolioType(newType);
@@ -194,7 +215,13 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
 
     // Clear warnings and proceed with import
     setWarnings([]);
-    onImport(convertedData, portfolioType, portfolioName.trim() || 'Imported Portfolio', currency);
+    onImport(
+      convertedData,
+      portfolioType,
+      portfolioName.trim() || 'Imported Portfolio',
+      currency,
+      targetPortfolioId === 'new' ? undefined : targetPortfolioId
+    );
     handleClose();
   };
 
@@ -254,68 +281,97 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
                 <span>{t('fileLoaded', { name: fileName, rows: csvData.rows.length })}</span>
               </div>
 
-              {/* Portfolio name input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('portfolioName')}
-                </label>
-                <input
-                  type="text"
-                  value={portfolioName}
-                  onChange={(e) => setPortfolioName(e.target.value)}
-                  placeholder={t('portfolioNamePlaceholder')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                />
-              </div>
-
-              {/* Currency selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('baseCurrency')}
-                </label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  {SUPPORTED_CURRENCIES.map((cur) => (
-                    <option key={cur} value={cur}>
-                      {cur}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Portfolio type selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('portfolioType')}
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('transaction')}
-                    className={`px-4 py-2 rounded-lg border transition-colors ${
-                      portfolioType === 'transaction'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
+              {/* Target portfolio selector */}
+              {existingPortfolios.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('importTarget')}
+                  </label>
+                  <select
+                    value={targetPortfolioId}
+                    onChange={(e) => handleTargetChange(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
-                    {t('typeTransaction')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('snapshot')}
-                    className={`px-4 py-2 rounded-lg border transition-colors ${
-                      portfolioType === 'snapshot'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {t('typeSnapshot')}
-                  </button>
+                    <option value="new">{t('createNewPortfolio')}</option>
+                    <optgroup label={t('existingPortfolios')}>
+                      {existingPortfolios.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.type}, {p.base_currency})
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
                 </div>
-              </div>
+              )}
+
+              {/* Portfolio name input - only for new portfolios */}
+              {targetPortfolioId === 'new' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('portfolioName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={portfolioName}
+                    onChange={(e) => setPortfolioName(e.target.value)}
+                    placeholder={t('portfolioNamePlaceholder')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Currency selector - only for new portfolios */}
+              {targetPortfolioId === 'new' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('baseCurrency')}
+                  </label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {SUPPORTED_CURRENCIES.map((cur) => (
+                      <option key={cur} value={cur}>
+                        {cur}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Portfolio type selector - only for new portfolios */}
+              {targetPortfolioId === 'new' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('portfolioType')}
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('transaction')}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                        portfolioType === 'transaction'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {t('typeTransaction')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('snapshot')}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                        portfolioType === 'snapshot'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {t('typeSnapshot')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Column mappings */}
               <div>

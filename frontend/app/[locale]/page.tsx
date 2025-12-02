@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Portfolio, PortfolioType } from '@/types';
-import { getAllPortfolios, savePortfolio } from '@/lib/storage';
+import { getAllPortfolios, savePortfolio, getPortfolio } from '@/lib/storage';
 import { ImportCSVModal } from '@/components/ImportCSVModal';
 
 export default function Home() {
@@ -64,19 +64,32 @@ export default function Home() {
     e.target.value = '';
   }
 
-  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string) {
-    // Generate new portfolio ID with random suffix to prevent collisions
-    const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
+  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string, targetPortfolioId?: string) {
+    if (targetPortfolioId) {
+      // Append to existing portfolio
+      const existingPortfolio = getPortfolio(targetPortfolioId);
+      if (existingPortfolio) {
+        const mergedData = [...existingPortfolio.data, ...data];
+        savePortfolio(targetPortfolioId, {
+          meta: existingPortfolio.meta,
+          data: mergedData,
+        });
+      }
+    } else {
+      // Create new portfolio
+      const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
 
-    const meta: Portfolio = {
-      id,
-      name: portfolioName,
-      type: portfolioType,
-      base_currency: currency,
-      created_at: new Date().toISOString(),
-    };
+      const meta: Portfolio = {
+        id,
+        name: portfolioName,
+        type: portfolioType,
+        base_currency: currency,
+        created_at: new Date().toISOString(),
+      };
 
-    savePortfolio(id, { meta, data });
+      savePortfolio(id, { meta, data });
+    }
+
     loadPortfolios();
     setPendingCSVFile(null);
   }
@@ -156,6 +169,7 @@ export default function Home() {
         }}
         onImport={handleCSVImport}
         initialFile={pendingCSVFile}
+        existingPortfolios={portfolios}
       />
     </main>
   );
