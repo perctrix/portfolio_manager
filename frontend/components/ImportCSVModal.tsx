@@ -150,13 +150,21 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
       const parsed = parseContent(rawFileContent, newDelimiter);
       if (parsed) {
         setCsvData(parsed);
-        const detectedType = detectPortfolioType(parsed.headers);
-        setPortfolioType(detectedType);
-        const detectedMappings = autoDetectMappings(parsed.headers, detectedType);
-        setMappings(detectedMappings);
+        // Only update type if creating new portfolio, not when importing to existing
+        if (targetPortfolioId === 'new') {
+          const newDetectedType = detectPortfolioType(parsed.headers);
+          setDetectedType(newDetectedType);
+          setPortfolioType(newDetectedType);
+          const detectedMappings = autoDetectMappings(parsed.headers, newDetectedType);
+          setMappings(detectedMappings);
+        } else {
+          // Keep existing portfolio's type, just update mappings
+          const detectedMappings = autoDetectMappings(parsed.headers, portfolioType);
+          setMappings(detectedMappings);
+        }
       }
     }
-  }, [rawFileContent, parseContent]);
+  }, [rawFileContent, parseContent, targetPortfolioId, portfolioType]);
 
   // Handle initial file - only process if not already processed
   useEffect(() => {
