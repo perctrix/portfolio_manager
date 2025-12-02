@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { Upload, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle2, ArrowRight, Download } from 'lucide-react';
 import { Portfolio, PortfolioType } from '@/types';
 import {
   parseCSV,
@@ -229,6 +229,35 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
     handleClose();
   };
 
+  const downloadTemplate = (type: PortfolioType) => {
+    let content: string;
+    let filename: string;
+
+    if (type === 'transaction') {
+      content = `datetime,symbol,side,quantity,price,fee
+2024-01-15T10:30,AAPL,BUY,100,185.50,9.99
+2024-02-20T14:15,GOOGL,BUY,50,140.25,9.99
+2024-03-10T09:00,AAPL,SELL,50,175.00,9.99`;
+      filename = 'transaction_template.csv';
+    } else {
+      content = `symbol,quantity,cost_basis,as_of
+AAPL,100,18550.00,2024-03-15
+GOOGL,50,7012.50,2024-03-15
+MSFT,75,28125.00,2024-03-15`;
+      filename = 'snapshot_template.csv';
+    }
+
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (!isOpen) return null;
 
   const targetFields = getTargetFields(portfolioType);
@@ -267,6 +296,27 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
                   className="hidden"
                 />
               </label>
+
+              {/* Template download */}
+              <div className="flex items-center justify-center gap-4 text-sm">
+                <span className="text-gray-500">{t('needTemplate')}</span>
+                <button
+                  type="button"
+                  onClick={() => downloadTemplate('transaction')}
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('transactionTemplate')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadTemplate('snapshot')}
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('snapshotTemplate')}
+                </button>
+              </div>
 
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
