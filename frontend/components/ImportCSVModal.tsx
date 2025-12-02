@@ -34,7 +34,7 @@ interface ImportCSVModalProps {
 
 const SUPPORTED_CURRENCIES = ['USD', 'CNY', 'EUR', 'GBP', 'JPY', 'HKD', 'CAD', 'AUD', 'CHF', 'SGD'] as const;
 
-type Step = 'upload' | 'mapping' | 'preview';
+type Step = 'upload' | 'mapping';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
