@@ -276,6 +276,7 @@
     "fileLoaded": "已加载 {name}（{rows} 行）",
     "portfolioName": "投资组合名称",
     "portfolioNamePlaceholder": "例如：我的核心持仓",
+    "baseCurrency": "基础货币",
     "portfolioType": "投资组合类型",
     "typeTransaction": "交易记录",
     "typeSnapshot": "快照（持仓）",

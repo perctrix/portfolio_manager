@@ -64,7 +64,7 @@ export default function Home() {
     e.target.value = '';
   }
 
-  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string) {
+  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType, portfolioName: string, currency: string) {
     // Generate new portfolio ID with random suffix to prevent collisions
     const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -72,7 +72,7 @@ export default function Home() {
       id,
       name: portfolioName,
       type: portfolioType,
-      base_currency: 'USD',
+      base_currency: currency,
       created_at: new Date().toISOString(),
     };
 

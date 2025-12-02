@@ -276,6 +276,7 @@
     "fileLoaded": "{name} loaded ({rows} rows)",
     "portfolioName": "Portfolio Name",
     "portfolioNamePlaceholder": "e.g., My Core Holdings",
+    "baseCurrency": "Base Currency",
     "portfolioType": "Portfolio Type",
     "typeTransaction": "Transaction History",
     "typeSnapshot": "Snapshot (Holdings)",
