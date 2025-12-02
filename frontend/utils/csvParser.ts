@@ -42,6 +42,10 @@ export const REQUIRED_FIELDS: Record<PortfolioType, TargetField[]> = {
   snapshot: ['symbol', 'quantity'],
 };
 
+// Supported date formats
+export const DATE_FORMATS = ['auto', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY'] as const;
+export type DateFormat = typeof DATE_FORMATS[number];
+
 /**
  * Parse CSV content into structured data
  */
@@ -299,7 +303,8 @@ export function validateMappings(
 export function convertToPortfolioData(
   rows: Record<string, string>[],
   mappings: ColumnMapping[],
-  portfolioType: PortfolioType
+  portfolioType: PortfolioType,
+  dateFormat: DateFormat = 'auto'
 ): Record<string, any>[] {
   const fieldMap = new Map<string, TargetField>();
   mappings.forEach(m => {
@@ -314,7 +319,7 @@ export function convertToPortfolioData(
     for (const [csvColumn, value] of Object.entries(row)) {
       const targetField = fieldMap.get(csvColumn);
       if (targetField) {
-        record[targetField] = convertValue(value, targetField);
+        record[targetField] = convertValue(value, targetField, dateFormat);
       }
     }
 
@@ -420,14 +425,14 @@ export function validateConvertedData(
 /**
  * Convert string value to appropriate type
  */
-function convertValue(value: string, field: TargetField): any {
+function convertValue(value: string, field: TargetField, dateFormat: DateFormat = 'auto'): any {
   const trimmed = value.trim();
 
   switch (field) {
     case 'datetime':
-      return normalizeDateTime(trimmed);
+      return normalizeDateTime(trimmed, dateFormat);
     case 'as_of':
-      return normalizeDate(trimmed);
+      return normalizeDate(trimmed, dateFormat);
     case 'quantity':
     case 'price':
     case 'fee':
@@ -443,13 +448,64 @@ function convertValue(value: string, field: TargetField): any {
 }
 
 /**
+ * Parse date string according to specified format
+ */
+function parseDateWithFormat(value: string, dateFormat: DateFormat): Date | null {
+  if (dateFormat === 'auto') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  // Extract date and optional time parts
+  const dateTimeParts = value.split(/[T\s]+/);
+  const datePart = dateTimeParts[0];
+  const timePart = dateTimeParts[1] || '00:00';
+
+  let year: number, month: number, day: number;
+
+  if (dateFormat === 'YYYY-MM-DD') {
+    const parts = datePart.split('-');
+    if (parts.length !== 3) return null;
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1;
+    day = parseInt(parts[2], 10);
+  } else if (dateFormat === 'MM/DD/YYYY') {
+    const parts = datePart.split('/');
+    if (parts.length !== 3) return null;
+    month = parseInt(parts[0], 10) - 1;
+    day = parseInt(parts[1], 10);
+    year = parseInt(parts[2], 10);
+  } else if (dateFormat === 'DD/MM/YYYY') {
+    const parts = datePart.split('/');
+    if (parts.length !== 3) return null;
+    day = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1;
+    year = parseInt(parts[2], 10);
+  } else if (dateFormat === 'DD.MM.YYYY') {
+    const parts = datePart.split('.');
+    if (parts.length !== 3) return null;
+    day = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1;
+    year = parseInt(parts[2], 10);
+  } else {
+    return null;
+  }
+
+  // Parse time
+  const timeParts = timePart.split(':');
+  const hours = parseInt(timeParts[0], 10) || 0;
+  const minutes = parseInt(timeParts[1], 10) || 0;
+
+  const date = new Date(year, month, day, hours, minutes);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
  * Normalize datetime string to ISO format
  */
-function normalizeDateTime(value: string): string {
-  // Try parsing various date formats
-  const date = new Date(value);
-  if (!isNaN(date.getTime())) {
-    // Format as YYYY-MM-DDTHH:MM
+function normalizeDateTime(value: string, dateFormat: DateFormat = 'auto'): string {
+  const date = parseDateWithFormat(value, dateFormat);
+  if (date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -463,9 +519,9 @@ function normalizeDateTime(value: string): string {
 /**
  * Normalize date string to YYYY-MM-DD format
  */
-function normalizeDate(value: string): string {
-  const date = new Date(value);
-  if (!isNaN(date.getTime())) {
+function normalizeDate(value: string, dateFormat: DateFormat = 'auto'): string {
+  const date = parseDateWithFormat(value, dateFormat);
+  if (date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');

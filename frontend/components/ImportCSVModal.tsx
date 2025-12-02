@@ -17,6 +17,8 @@ import {
   TargetField,
   REQUIRED_FIELDS,
   DataValidationWarning,
+  DATE_FORMATS,
+  DateFormat,
 } from '@/utils/csvParser';
 
 interface ImportCSVModalProps {
@@ -46,6 +48,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
   const [currency, setCurrency] = useState<string>('USD');
   const [warnings, setWarnings] = useState<DataValidationWarning[]>([]);
   const [targetPortfolioId, setTargetPortfolioId] = useState<string>('new');
+  const [dateFormat, setDateFormat] = useState<DateFormat>('auto');
 
   // Track processed file to prevent duplicate processing
   const processedFileRef = useRef<File | null>(null);
@@ -61,6 +64,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
     setCurrency('USD');
     setWarnings([]);
     setTargetPortfolioId('new');
+    setDateFormat('auto');
     processedFileRef.current = null;
   }, []);
 
@@ -202,7 +206,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
       return;
     }
 
-    const convertedData = convertToPortfolioData(csvData.rows, mappings, portfolioType);
+    const convertedData = convertToPortfolioData(csvData.rows, mappings, portfolioType, dateFormat);
 
     // Validate data and check for warnings
     const dataWarnings = validateConvertedData(convertedData, portfolioType);
@@ -372,6 +376,25 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
                   </div>
                 </div>
               )}
+
+              {/* Date format selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('dateFormat')}
+                </label>
+                <select
+                  value={dateFormat}
+                  onChange={(e) => setDateFormat(e.target.value as DateFormat)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  {DATE_FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {format === 'auto' ? t('dateFormatAuto') : format}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">{t('dateFormatHint')}</p>
+              </div>
 
               {/* Column mappings */}
               <div>
