@@ -314,6 +314,8 @@
     "warningRow": "第 {row} 行",
     "moreWarnings": "...还有 {count} 个问题",
     "importWithWarnings": "仍然导入",
-    "typeMismatchWarning": "CSV 数据似乎是 {detected} 类型，但所选组合是 {portfolio} 类型。部分字段可能无法正确映射。"
+    "typeMismatchWarning": "CSV 数据似乎是 {detected} 类型，但所选组合是 {portfolio} 类型。部分字段可能无法正确映射。",
+    "snapshotMergeWarning": "导入的数据将覆盖相同 symbol 的现有持仓。",
+    "transactionMergeWarning": "重复的交易记录（相同时间、symbol、方向、数量、价格）将被跳过。"
   }
 }

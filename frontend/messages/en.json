@@ -314,6 +314,8 @@
     "warningRow": "Row {row}",
     "moreWarnings": "...and {count} more issue(s)",
     "importWithWarnings": "Import Anyway",
-    "typeMismatchWarning": "CSV data appears to be {detected} type, but the selected portfolio is {portfolio} type. Some fields may not map correctly."
+    "typeMismatchWarning": "CSV data appears to be {detected} type, but the selected portfolio is {portfolio} type. Some fields may not map correctly.",
+    "snapshotMergeWarning": "Imported data will override existing positions with the same symbol.",
+    "transactionMergeWarning": "Duplicate transactions (same datetime, symbol, side, quantity, price) will be skipped."
   }
 }

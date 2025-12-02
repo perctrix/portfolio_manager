@@ -404,18 +404,30 @@ MSFT,75,28125.00,2024-03-15`;
                       ))}
                     </optgroup>
                   </select>
-                  {/* Type mismatch warning */}
+                  {/* Warnings for existing portfolio */}
                   {targetPortfolioId !== 'new' && (() => {
                     const selectedPortfolio = existingPortfolios.find(p => p.id === targetPortfolioId);
-                    if (selectedPortfolio && selectedPortfolio.type !== detectedType) {
-                      return (
-                        <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm">
+                    if (!selectedPortfolio) return null;
+
+                    const showTypeMismatch = selectedPortfolio.type !== detectedType;
+                    const mergeWarningKey = selectedPortfolio.type === 'snapshot'
+                      ? 'snapshotMergeWarning'
+                      : 'transactionMergeWarning';
+
+                    return (
+                      <div className="mt-2 space-y-2">
+                        {showTypeMismatch && (
+                          <div className="flex items-start gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <span>{t('typeMismatchWarning', { detected: detectedType, portfolio: selectedPortfolio.type })}</span>
+                          </div>
+                        )}
+                        <div className="flex items-start gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
                           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                          <span>{t('typeMismatchWarning', { detected: detectedType, portfolio: selectedPortfolio.type })}</span>
+                          <span>{t(mergeWarningKey)}</span>
                         </div>
-                      );
-                    }
-                    return null;
+                      </div>
+                    );
                   })()}
                 </div>
               )}
