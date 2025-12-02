@@ -313,6 +313,7 @@
     "warningsFound": "{count} data issue(s) found",
     "warningRow": "Row {row}",
     "moreWarnings": "...and {count} more issue(s)",
-    "importWithWarnings": "Import Anyway"
+    "importWithWarnings": "Import Anyway",
+    "typeMismatchWarning": "CSV data appears to be {detected} type, but the selected portfolio is {portfolio} type. Some fields may not map correctly."
   }
 }

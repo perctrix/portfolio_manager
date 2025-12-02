@@ -49,11 +49,66 @@ export type DateFormat = typeof DATE_FORMATS[number];
 // Supported delimiters
 export const DELIMITERS = [',', ';', '\t'] as const;
 export type Delimiter = typeof DELIMITERS[number];
-export const DELIMITER_LABELS: Record<Delimiter, string> = {
-  ',': 'Comma (,)',
-  ';': 'Semicolon (;)',
-  '\t': 'Tab',
-};
+
+/**
+ * Auto-detect the most likely delimiter in CSV content
+ * Analyzes the first few lines to determine the delimiter
+ */
+export function detectDelimiter(content: string): Delimiter {
+  const lines = content.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length === 0) return ',';
+
+  // Analyze first line (header) and a few data lines
+  const sampleLines = lines.slice(0, Math.min(5, lines.length));
+
+  const delimiterScores: Record<Delimiter, number> = {
+    ',': 0,
+    ';': 0,
+    '\t': 0,
+  };
+
+  for (const delim of DELIMITERS) {
+    // Count occurrences in each line
+    const counts = sampleLines.map(line => {
+      // Don't count delimiters inside quotes
+      let count = 0;
+      let inQuotes = false;
+      for (const char of line) {
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === delim && !inQuotes) count++;
+      }
+      return count;
+    });
+
+    // A good delimiter should:
+    // 1. Appear multiple times
+    // 2. Have consistent count across lines
+    const firstCount = counts[0];
+    if (firstCount === 0) continue;
+
+    const isConsistent = counts.every(c => c === firstCount);
+    if (isConsistent) {
+      // Score based on count and consistency
+      delimiterScores[delim] = firstCount * 10;
+    } else {
+      // Partial score for inconsistent but present delimiter
+      delimiterScores[delim] = firstCount;
+    }
+  }
+
+  // Return delimiter with highest score, default to comma
+  let bestDelimiter: Delimiter = ',';
+  let bestScore = 0;
+
+  for (const [delim, score] of Object.entries(delimiterScores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestDelimiter = delim as Delimiter;
+    }
+  }
+
+  return bestDelimiter;
+}
 
 /**
  * Parse CSV content into structured data

@@ -69,7 +69,34 @@ export default function Home() {
       // Append to existing portfolio
       const existingPortfolio = getPortfolio(targetPortfolioId);
       if (existingPortfolio) {
-        const mergedData = [...existingPortfolio.data, ...data];
+        let mergedData: Record<string, any>[];
+
+        if (existingPortfolio.meta.type === 'transaction') {
+          // For transactions: merge and sort by datetime, detect duplicates
+          const existingSet = new Set(
+            existingPortfolio.data.map(r =>
+              `${r.datetime}|${r.symbol}|${r.side}|${r.quantity}|${r.price}`
+            )
+          );
+          const newRecords = data.filter(r =>
+            !existingSet.has(`${r.datetime}|${r.symbol}|${r.side}|${r.quantity}|${r.price}`)
+          );
+          mergedData = [...existingPortfolio.data, ...newRecords]
+            .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+        } else {
+          // For snapshots: newer data overrides older for same symbol
+          const symbolMap = new Map<string, Record<string, any>>();
+          // Add existing data first
+          for (const record of existingPortfolio.data) {
+            symbolMap.set(record.symbol, record);
+          }
+          // Override with new data
+          for (const record of data) {
+            symbolMap.set(record.symbol, record);
+          }
+          mergedData = Array.from(symbolMap.values());
+        }
+
         savePortfolio(targetPortfolioId, {
           meta: existingPortfolio.meta,
           data: mergedData,

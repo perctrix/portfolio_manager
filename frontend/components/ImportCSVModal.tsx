@@ -12,6 +12,7 @@ import {
   validateConvertedData,
   getTargetFields,
   detectPortfolioType,
+  detectDelimiter,
   ColumnMapping,
   ParsedCSV,
   TargetField,
@@ -21,7 +22,6 @@ import {
   DateFormat,
   DELIMITERS,
   Delimiter,
-  DELIMITER_LABELS,
 } from '@/utils/csvParser';
 
 interface ImportCSVModalProps {
@@ -54,6 +54,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
   const [dateFormat, setDateFormat] = useState<DateFormat>('auto');
   const [delimiter, setDelimiter] = useState<Delimiter>(',');
   const [rawFileContent, setRawFileContent] = useState<string>('');
+  const [detectedType, setDetectedType] = useState<PortfolioType>('transaction');
 
   // Track processed file to prevent duplicate processing
   const processedFileRef = useRef<File | null>(null);
@@ -72,6 +73,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
     setDateFormat('auto');
     setDelimiter(',');
     setRawFileContent('');
+    setDetectedType('transaction');
     processedFileRef.current = null;
   }, []);
 
@@ -98,7 +100,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
   }, [t]);
 
   // Process file
-  const processFile = useCallback(async (file: File, delim: Delimiter = ',') => {
+  const processFile = useCallback(async (file: File) => {
     setError(null);
     setFileName(file.name);
     // Set default portfolio name from filename (without .csv extension)
@@ -114,16 +116,21 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
       const content = await file.text();
       setRawFileContent(content);
 
-      const parsed = parseContent(content, delim);
+      // Auto-detect delimiter
+      const detectedDelimiter = detectDelimiter(content);
+      setDelimiter(detectedDelimiter);
+
+      const parsed = parseContent(content, detectedDelimiter);
       if (!parsed) return;
 
       setCsvData(parsed);
 
       // Auto-detect portfolio type and mappings
-      const detectedType = detectPortfolioType(parsed.headers);
-      setPortfolioType(detectedType);
+      const autoDetectedType = detectPortfolioType(parsed.headers);
+      setDetectedType(autoDetectedType);
+      setPortfolioType(autoDetectedType);
 
-      const detectedMappings = autoDetectMappings(parsed.headers, detectedType);
+      const detectedMappings = autoDetectMappings(parsed.headers, autoDetectedType);
       setMappings(detectedMappings);
 
       setStep('mapping');
@@ -389,6 +396,19 @@ MSFT,75,28125.00,2024-03-15`;
                       ))}
                     </optgroup>
                   </select>
+                  {/* Type mismatch warning */}
+                  {targetPortfolioId !== 'new' && (() => {
+                    const selectedPortfolio = existingPortfolios.find(p => p.id === targetPortfolioId);
+                    if (selectedPortfolio && selectedPortfolio.type !== detectedType) {
+                      return (
+                        <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <span>{t('typeMismatchWarning', { detected: detectedType, portfolio: selectedPortfolio.type })}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
 
