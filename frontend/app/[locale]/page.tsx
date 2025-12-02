@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio } from '@/types';
+import { Portfolio, PortfolioType } from '@/types';
 import { getAllPortfolios, savePortfolio } from '@/lib/storage';
+import { ImportCSVModal } from '@/components/ImportCSVModal';
 
 export default function Home() {
   const t = useTranslations('Home');
   const locale = useLocale();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [pendingCSVFile, setPendingCSVFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadPortfolios();
@@ -30,6 +33,17 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+
+    if (isCSV) {
+      // Open CSV modal for column mapping
+      setPendingCSVFile(file);
+      setShowCSVModal(true);
+      e.target.value = '';
+      return;
+    }
+
+    // Handle JSON import
     try {
       const text = await file.text();
       const importData = JSON.parse(text);
@@ -50,6 +64,24 @@ export default function Home() {
     e.target.value = '';
   }
 
+  function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType) {
+    // Generate new portfolio ID and metadata
+    const id = `p_${Date.now().toString(36)}`;
+    const baseName = pendingCSVFile?.name.replace(/\.csv$/i, '') || 'Imported Portfolio';
+
+    const meta: Portfolio = {
+      id,
+      name: baseName,
+      type: portfolioType,
+      base_currency: 'USD',
+      created_at: new Date().toISOString(),
+    };
+
+    savePortfolio(id, { meta, data });
+    loadPortfolios();
+    setPendingCSVFile(null);
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50 text-gray-900">
       <div className="max-w-4xl mx-auto">
@@ -60,7 +92,7 @@ export default function Home() {
               {t('importPortfolio')}
               <input
                 type="file"
-                accept=".json"
+                accept=".json,.csv"
                 className="hidden"
                 onChange={handleImport}
               />
@@ -116,6 +148,16 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <ImportCSVModal
+        isOpen={showCSVModal}
+        onClose={() => {
+          setShowCSVModal(false);
+          setPendingCSVFile(null);
+        }}
+        onImport={handleCSVImport}
+        initialFile={pendingCSVFile}
+      />
     </main>
   );
 }

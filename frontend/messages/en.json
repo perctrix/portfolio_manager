@@ -267,5 +267,31 @@
   },
   "LanguageSwitcher": {
     "language": "Language"
+  },
+  "ImportCSV": {
+    "title": "Import CSV File",
+    "subtitle": "Map your CSV columns to portfolio fields",
+    "dropzone": "Click to select a CSV file",
+    "dropzoneHint": "or drag and drop here",
+    "fileLoaded": "{name} loaded ({rows} rows)",
+    "portfolioType": "Portfolio Type",
+    "typeTransaction": "Transaction History",
+    "typeSnapshot": "Snapshot (Holdings)",
+    "columnMapping": "Column Mapping",
+    "csvColumn": "CSV Column",
+    "targetField": "Target Field",
+    "preview": "Preview",
+    "ignoreColumn": "-- Ignore this column --",
+    "alreadyMapped": "already mapped",
+    "requiredHint": "* Required fields are marked with an asterisk",
+    "dataPreview": "Data Preview",
+    "rows": "rows",
+    "missingRequired": "Missing required fields: {fields}",
+    "cancel": "Cancel",
+    "import": "Import Data",
+    "errorEmptyFile": "The CSV file appears to be empty",
+    "errorNoData": "No data rows found in the CSV file",
+    "errorParseFailed": "Failed to parse the CSV file",
+    "errorMissingFields": "Please map all required fields: {fields}"
   }
 }

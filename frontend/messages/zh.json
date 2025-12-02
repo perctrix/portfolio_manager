@@ -267,5 +267,31 @@
   },
   "LanguageSwitcher": {
     "language": "语言"
+  },
+  "ImportCSV": {
+    "title": "导入 CSV 文件",
+    "subtitle": "将 CSV 列映射到投资组合字段",
+    "dropzone": "点击选择 CSV 文件",
+    "dropzoneHint": "或拖放到此处",
+    "fileLoaded": "已加载 {name}（{rows} 行）",
+    "portfolioType": "投资组合类型",
+    "typeTransaction": "交易记录",
+    "typeSnapshot": "快照（持仓）",
+    "columnMapping": "列映射",
+    "csvColumn": "CSV 列",
+    "targetField": "目标字段",
+    "preview": "预览",
+    "ignoreColumn": "-- 忽略此列 --",
+    "alreadyMapped": "已映射",
+    "requiredHint": "* 带星号的为必填字段",
+    "dataPreview": "数据预览",
+    "rows": "行",
+    "missingRequired": "缺少必填字段：{fields}",
+    "cancel": "取消",
+    "import": "导入数据",
+    "errorEmptyFile": "CSV 文件似乎为空",
+    "errorNoData": "CSV 文件中未找到数据行",
+    "errorParseFailed": "解析 CSV 文件失败",
+    "errorMissingFields": "请映射所有必填字段：{fields}"
   }
 }
