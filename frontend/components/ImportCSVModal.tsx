@@ -9,12 +9,14 @@ import {
   autoDetectMappings,
   validateMappings,
   convertToPortfolioData,
+  validateConvertedData,
   getTargetFields,
   detectPortfolioType,
   ColumnMapping,
   ParsedCSV,
   TargetField,
   REQUIRED_FIELDS,
+  DataValidationWarning,
 } from '@/utils/csvParser';
 
 interface ImportCSVModalProps {
@@ -37,6 +39,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const [portfolioType, setPortfolioType] = useState<PortfolioType>('transaction');
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [warnings, setWarnings] = useState<DataValidationWarning[]>([]);
 
   // Track processed file to prevent duplicate processing
   const processedFileRef = useRef<File | null>(null);
@@ -48,6 +51,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     setPortfolioType('transaction');
     setError(null);
     setFileName('');
+    setWarnings([]);
     processedFileRef.current = null;
   }, []);
 
@@ -160,7 +164,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     });
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = (forceImport = false) => {
     if (!csvData) return;
 
     const validation = validateMappings(mappings, portfolioType);
@@ -170,6 +174,18 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     }
 
     const convertedData = convertToPortfolioData(csvData.rows, mappings, portfolioType);
+
+    // Validate data and check for warnings
+    const dataWarnings = validateConvertedData(convertedData, portfolioType);
+
+    // If there are warnings and user hasn't confirmed, show warnings first
+    if (dataWarnings.length > 0 && !forceImport) {
+      setWarnings(dataWarnings);
+      return;
+    }
+
+    // Clear warnings and proceed with import
+    setWarnings([]);
     onImport(convertedData, portfolioType);
     handleClose();
   };
@@ -377,6 +393,30 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
                   </table>
                 </div>
               </div>
+
+              {/* Data validation warnings */}
+              {warnings.length > 0 && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-amber-800">{t('warningsFound', { count: warnings.length })}</p>
+                      <ul className="mt-2 text-sm text-amber-700 space-y-1">
+                        {warnings.slice(0, 5).map((w, i) => (
+                          <li key={i}>
+                            {t('warningRow', { row: w.row })}: {w.message} ({w.field})
+                          </li>
+                        ))}
+                        {warnings.length > 5 && (
+                          <li className="text-amber-600">
+                            {t('moreWarnings', { count: warnings.length - 5 })}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -399,14 +439,24 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
               {t('cancel')}
             </button>
             {step === 'mapping' && (
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={!validation.valid}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {t('import')}
-              </button>
+              warnings.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => handleConfirm(true)}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  {t('importWithWarnings')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleConfirm(false)}
+                  disabled={!validation.valid}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('import')}
+                </button>
+              )
             )}
           </div>
         </div>

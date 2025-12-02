@@ -293,6 +293,10 @@
     "errorNoData": "CSV 文件中未找到数据行",
     "errorParseFailed": "解析 CSV 文件失败",
     "errorMissingFields": "请映射所有必填字段：{fields}",
-    "errorFileTooLarge": "文件过大，最大支持 10MB。"
+    "errorFileTooLarge": "文件过大，最大支持 10MB。",
+    "warningsFound": "发现 {count} 个数据问题",
+    "warningRow": "第 {row} 行",
+    "moreWarnings": "...还有 {count} 个问题",
+    "importWithWarnings": "仍然导入"
   }
 }

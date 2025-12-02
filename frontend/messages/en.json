@@ -293,6 +293,10 @@
     "errorNoData": "No data rows found in the CSV file",
     "errorParseFailed": "Failed to parse the CSV file",
     "errorMissingFields": "Please map all required fields: {fields}",
-    "errorFileTooLarge": "File is too large. Maximum size is 10MB."
+    "errorFileTooLarge": "File is too large. Maximum size is 10MB.",
+    "warningsFound": "{count} data issue(s) found",
+    "warningRow": "Row {row}",
+    "moreWarnings": "...and {count} more issue(s)",
+    "importWithWarnings": "Import Anyway"
   }
 }
