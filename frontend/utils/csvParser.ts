@@ -46,16 +46,25 @@ export const REQUIRED_FIELDS: Record<PortfolioType, TargetField[]> = {
 export const DATE_FORMATS = ['auto', 'YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY', 'DD.MM.YYYY'] as const;
 export type DateFormat = typeof DATE_FORMATS[number];
 
+// Supported delimiters
+export const DELIMITERS = [',', ';', '\t'] as const;
+export type Delimiter = typeof DELIMITERS[number];
+export const DELIMITER_LABELS: Record<Delimiter, string> = {
+  ',': 'Comma (,)',
+  ';': 'Semicolon (;)',
+  '\t': 'Tab',
+};
+
 /**
  * Parse CSV content into structured data
  */
-export function parseCSV(content: string): ParsedCSV {
+export function parseCSV(content: string, delimiter: Delimiter = ','): ParsedCSV {
   const lines = content.split(/\r?\n/).filter(line => line.trim());
   if (lines.length === 0) {
     return { headers: [], rows: [], rawRows: [] };
   }
 
-  const rawRows: string[][] = lines.map(line => parseCSVLine(line));
+  const rawRows: string[][] = lines.map(line => parseCSVLine(line, delimiter));
   const rawHeaders = rawRows[0] || [];
   const dataRows = rawRows.slice(1);
 
@@ -83,7 +92,7 @@ export function parseCSV(content: string): ParsedCSV {
  * Parse a single CSV line, handling quoted values
  * Handles unclosed quotes gracefully by treating them as literal characters
  */
-function parseCSVLine(line: string): string[] {
+function parseCSVLine(line: string, delimiter: Delimiter = ','): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -109,7 +118,7 @@ function parseCSVLine(line: string): string[] {
         // Start of quoted section
         inQuotes = true;
         quoteStart = i;
-      } else if (char === ',') {
+      } else if (char === delimiter) {
         result.push(current.trim());
         current = '';
       } else {
@@ -124,7 +133,7 @@ function parseCSVLine(line: string): string[] {
     current = '';
     for (let i = quoteStart; i < line.length; i++) {
       const char = line[i];
-      if (char === ',') {
+      if (char === delimiter) {
         result.push(current.trim());
         current = '';
       } else {

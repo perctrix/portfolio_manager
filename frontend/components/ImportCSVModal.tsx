@@ -19,6 +19,9 @@ import {
   DataValidationWarning,
   DATE_FORMATS,
   DateFormat,
+  DELIMITERS,
+  Delimiter,
+  DELIMITER_LABELS,
 } from '@/utils/csvParser';
 
 interface ImportCSVModalProps {
@@ -49,6 +52,8 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
   const [warnings, setWarnings] = useState<DataValidationWarning[]>([]);
   const [targetPortfolioId, setTargetPortfolioId] = useState<string>('new');
   const [dateFormat, setDateFormat] = useState<DateFormat>('auto');
+  const [delimiter, setDelimiter] = useState<Delimiter>(',');
+  const [rawFileContent, setRawFileContent] = useState<string>('');
 
   // Track processed file to prevent duplicate processing
   const processedFileRef = useRef<File | null>(null);
@@ -65,6 +70,8 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
     setWarnings([]);
     setTargetPortfolioId('new');
     setDateFormat('auto');
+    setDelimiter(',');
+    setRawFileContent('');
     processedFileRef.current = null;
   }, []);
 
@@ -73,8 +80,25 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
     onClose();
   }, [resetState, onClose]);
 
+  // Parse content with given delimiter
+  const parseContent = useCallback((content: string, delim: Delimiter) => {
+    const parsed = parseCSV(content, delim);
+
+    if (parsed.headers.length === 0) {
+      setError(t('errorEmptyFile'));
+      return null;
+    }
+
+    if (parsed.rows.length === 0) {
+      setError(t('errorNoData'));
+      return null;
+    }
+
+    return parsed;
+  }, [t]);
+
   // Process file
-  const processFile = useCallback(async (file: File) => {
+  const processFile = useCallback(async (file: File, delim: Delimiter = ',') => {
     setError(null);
     setFileName(file.name);
     // Set default portfolio name from filename (without .csv extension)
@@ -88,17 +112,10 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
 
     try {
       const content = await file.text();
-      const parsed = parseCSV(content);
+      setRawFileContent(content);
 
-      if (parsed.headers.length === 0) {
-        setError(t('errorEmptyFile'));
-        return;
-      }
-
-      if (parsed.rows.length === 0) {
-        setError(t('errorNoData'));
-        return;
-      }
+      const parsed = parseContent(content, delim);
+      if (!parsed) return;
 
       setCsvData(parsed);
 
@@ -115,7 +132,24 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile, existin
       setError(t('errorParseFailed'));
       console.error('CSV parse error:', err);
     }
-  }, [t]);
+  }, [t, parseContent]);
+
+  // Handle delimiter change - re-parse the file
+  const handleDelimiterChange = useCallback((newDelimiter: Delimiter) => {
+    setDelimiter(newDelimiter);
+    setError(null);
+
+    if (rawFileContent) {
+      const parsed = parseContent(rawFileContent, newDelimiter);
+      if (parsed) {
+        setCsvData(parsed);
+        const detectedType = detectPortfolioType(parsed.headers);
+        setPortfolioType(detectedType);
+        const detectedMappings = autoDetectMappings(parsed.headers, detectedType);
+        setMappings(detectedMappings);
+      }
+    }
+  }, [rawFileContent, parseContent]);
 
   // Handle initial file - only process if not already processed
   useEffect(() => {
@@ -426,6 +460,24 @@ MSFT,75,28125.00,2024-03-15`;
                   </div>
                 </div>
               )}
+
+              {/* Delimiter selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('delimiter')}
+                </label>
+                <select
+                  value={delimiter}
+                  onChange={(e) => handleDelimiterChange(e.target.value as Delimiter)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  {DELIMITERS.map((delim) => (
+                    <option key={delim} value={delim}>
+                      {delim === ',' ? t('delimiterComma') : delim === ';' ? t('delimiterSemicolon') : t('delimiterTab')}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Date format selector */}
               <div>
