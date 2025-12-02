@@ -65,8 +65,8 @@ export default function Home() {
   }
 
   function handleCSVImport(data: Record<string, any>[], portfolioType: PortfolioType) {
-    // Generate new portfolio ID and metadata
-    const id = `p_${Date.now().toString(36)}`;
+    // Generate new portfolio ID with random suffix to prevent collisions
+    const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
     const baseName = pendingCSVFile?.name.replace(/\.csv$/i, '') || 'Imported Portfolio';
 
     const meta: Portfolio = {

@@ -292,6 +292,7 @@
     "errorEmptyFile": "The CSV file appears to be empty",
     "errorNoData": "No data rows found in the CSV file",
     "errorParseFailed": "Failed to parse the CSV file",
-    "errorMissingFields": "Please map all required fields: {fields}"
+    "errorMissingFields": "Please map all required fields: {fields}",
+    "errorFileTooLarge": "File is too large. Maximum size is 10MB."
   }
 }

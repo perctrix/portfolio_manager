@@ -30,7 +30,7 @@ const FIELD_ALIASES: Record<TargetField, string[]> = {
   side: ['side', 'type', 'action', 'transaction_type', 'direction', 'trade_type', 'order_type', 'buy_sell', 'operation'],
   quantity: ['quantity', 'qty', 'shares', 'volume', 'amount', 'units', 'size', 'num_shares', 'share_count', 'lot'],
   price: ['price', 'cost', 'unit_price', 'price_per_share', 'share_price', 'execution_price', 'trade_price', 'avg_price', 'average_price'],
-  fee: ['fee', 'commission', 'charge', 'cost', 'transaction_fee', 'trading_fee', 'brokerage', 'fees', 'commissions'],
+  fee: ['fee', 'commission', 'charge', 'transaction_fee', 'trading_fee', 'brokerage', 'fees', 'commissions'],
   // Snapshot fields
   cost_basis: ['cost_basis', 'total_cost', 'cost', 'basis', 'costbasis', 'average_cost', 'avg_cost', 'book_value', 'investment'],
   as_of: ['as_of', 'date', 'snapshot_date', 'asof', 'position_date', 'value_date', 'reporting_date'],
@@ -52,8 +52,17 @@ export function parseCSV(content: string): ParsedCSV {
   }
 
   const rawRows: string[][] = lines.map(line => parseCSVLine(line));
-  const headers = rawRows[0] || [];
+  const rawHeaders = rawRows[0] || [];
   const dataRows = rawRows.slice(1);
+
+  // Handle duplicate column headers by appending suffix
+  const headerCounts = new Map<string, number>();
+  const headers = rawHeaders.map(header => {
+    const trimmed = header.trim() || 'column';
+    const count = headerCounts.get(trimmed) || 0;
+    headerCounts.set(trimmed, count + 1);
+    return count === 0 ? trimmed : `${trimmed}_${count + 1}`;
+  });
 
   const rows = dataRows.map(row => {
     const record: Record<string, string> = {};
@@ -170,6 +179,12 @@ function findBestMatch(csvColumn: string, targetFields: readonly TargetField[]):
 
     for (const alias of aliases) {
       const normalizedAlias = normalizeString(alias);
+
+      // Early exit on exact match
+      if (normalizedColumn === normalizedAlias) {
+        return { field, confidence: 1 };
+      }
+
       const similarity = calculateSimilarity(normalizedColumn, normalizedAlias);
 
       if (similarity > bestConfidence) {
@@ -204,8 +219,6 @@ export function autoDetectMappings(
   });
 
   // Second pass: resolve conflicts (same field matched by multiple columns)
-  const mappings: ColumnMapping[] = [];
-
   // Sort by confidence to prioritize better matches
   const sortedIndices = initialMappings
     .map((m, i) => ({ ...m, index: i }))

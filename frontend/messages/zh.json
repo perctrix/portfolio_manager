@@ -292,6 +292,7 @@
     "errorEmptyFile": "CSV 文件似乎为空",
     "errorNoData": "CSV 文件中未找到数据行",
     "errorParseFailed": "解析 CSV 文件失败",
-    "errorMissingFields": "请映射所有必填字段：{fields}"
+    "errorMissingFields": "请映射所有必填字段：{fields}",
+    "errorFileTooLarge": "文件过大，最大支持 10MB。"
   }
 }

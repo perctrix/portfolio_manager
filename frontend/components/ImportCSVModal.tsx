@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Upload, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { PortfolioType } from '@/types';
@@ -26,6 +26,8 @@ interface ImportCSVModalProps {
 
 type Step = 'upload' | 'mapping' | 'preview';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: ImportCSVModalProps) {
   const t = useTranslations('ImportCSV');
 
@@ -36,6 +38,9 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
 
+  // Track processed file to prevent duplicate processing
+  const processedFileRef = useRef<File | null>(null);
+
   const resetState = useCallback(() => {
     setStep('upload');
     setCsvData(null);
@@ -43,6 +48,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     setPortfolioType('transaction');
     setError(null);
     setFileName('');
+    processedFileRef.current = null;
   }, []);
 
   const handleClose = () => {
@@ -50,10 +56,16 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
     onClose();
   };
 
-  // Process initial file when provided
+  // Process file
   const processFile = useCallback(async (file: File) => {
     setError(null);
     setFileName(file.name);
+
+    // File size validation
+    if (file.size > MAX_FILE_SIZE) {
+      setError(t('errorFileTooLarge'));
+      return;
+    }
 
     try {
       const content = await file.text();
@@ -79,18 +91,31 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
       setMappings(detectedMappings);
 
       setStep('mapping');
+      processedFileRef.current = file;
     } catch (err) {
       setError(t('errorParseFailed'));
       console.error('CSV parse error:', err);
     }
   }, [t]);
 
-  // Handle initial file
+  // Handle initial file - only process if not already processed
   useEffect(() => {
-    if (isOpen && initialFile) {
+    if (isOpen && initialFile && processedFileRef.current !== initialFile) {
       processFile(initialFile);
     }
   }, [isOpen, initialFile, processFile]);
+
+  // Keyboard navigation - Escape to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,6 +128,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   };
 
   const handleTypeChange = (newType: PortfolioType) => {
+    setError(null); // Clear error on type change
     setPortfolioType(newType);
     if (csvData) {
       const newMappings = autoDetectMappings(csvData.headers, newType);
@@ -111,6 +137,7 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   };
 
   const handleMappingChange = (index: number, newTarget: TargetField | null) => {
+    setError(null); // Clear error on mapping change
     setMappings(prev => {
       const updated = [...prev];
 
@@ -157,11 +184,16 @@ export function ImportCSVModal({ isOpen, onClose, onImport, initialFile }: Impor
   const usedFields = new Set(mappings.map(m => m.targetField).filter(Boolean));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="csv-import-title"
+    >
       <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b">
-          <h2 className="text-xl font-bold">{t('title')}</h2>
+          <h2 id="csv-import-title" className="text-xl font-bold">{t('title')}</h2>
           <p className="text-sm text-gray-500 mt-1">{t('subtitle')}</p>
         </div>
 
