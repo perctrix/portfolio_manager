@@ -11,3 +11,4 @@ backend/data/prices/**
 .next
 settings.local.json
 nul
+indicators.md
