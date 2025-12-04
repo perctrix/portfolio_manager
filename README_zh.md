@@ -14,6 +14,7 @@
 - **95+综合指标**：收益率、风险指标、回撤分析、风险调整比率、尾部风险度量、配置分析、风险分解和交易指标
 - **5个基本指标**：总收益率、CAGR、波动率、夏普比率和最大回撤，用于快速分析
 - **基准比较**：与8个主要市场指数进行投资组合绩效比较，支持高级指标（Beta、Alpha、特雷诺比率、M2度量、捕获比率等）
+- **马科维茨有效前沿**：均值-方差优化，交互式可视化展示最优组合配置（最小方差组合和最大夏普比率组合）
 
 <details>
 <summary><b>📊 完整指标列表（点击展开）</b></summary>
@@ -96,6 +97,15 @@
 - 平均两两相关性
 - 最大/最小相关性
 
+#### 马科维茨有效前沿
+- 有效前沿曲线（50个点）
+- 全局最小方差（GMV）组合
+- 最大夏普比率（切线）组合
+- 当前组合与前沿位置对比
+- 最优权重对比
+- 资产级预期收益和波动率
+- 支持卖空开关
+
 </details>
 
 ### 技术分析
@@ -177,6 +187,7 @@
 - `POST /api/calculate/indicators/all` - 计算全部79个指标
 - `POST /api/calculate/indicators/basic` - 计算5个基本指标（快速）
 - `POST /api/calculate/benchmark-comparison` - 投资组合与基准比较
+- `POST /api/calculate/markowitz` - 计算马科维茨有效前沿分析
 
 ### 市场数据
 - `GET /api/prices/{symbol}/history` - 获取股票代码的历史价格
@@ -223,6 +234,7 @@ portfolio_manager/
 │   │   │       ├── trading.py        # 交易指标
 │   │   │       ├── technical.py      # 技术指标
 │   │   │       ├── correlation_beta.py # 基准比较
+│   │   │       ├── markowitz.py      # 有效前沿优化
 │   │   │       └── aggregator.py     # 指标聚合
 │   │   └── models/
 │   │       └── portfolio.py          # 投资组合数据模型

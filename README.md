@@ -14,6 +14,7 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - **95+ Comprehensive Indicators**: Returns, risk metrics, drawdown analysis, risk-adjusted ratios, tail risk measures, allocation analysis, risk decomposition, and trading metrics
 - **5 Basic Indicators**: Total return, CAGR, volatility, Sharpe ratio, and maximum drawdown for quick analysis
 - **Benchmark Comparison**: Compare portfolio performance against 8 major market indices with advanced metrics (Beta, Alpha, Treynor Ratio, M2 Measure, Capture Ratios, etc.)
+- **Markowitz Efficient Frontier**: Mean-variance optimization with interactive visualization, showing optimal portfolio allocations (GMV and Maximum Sharpe portfolios)
 
 <details>
 <summary><b>📊 Complete Indicator List (Click to expand)</b></summary>
@@ -96,6 +97,15 @@ A lightweight, privacy-focused portfolio management and analysis tool with compr
 - Mean Pairwise Correlation
 - Max/Min Correlation
 
+#### Markowitz Efficient Frontier
+- Efficient Frontier Curve (50 points)
+- Global Minimum Variance (GMV) Portfolio
+- Maximum Sharpe Ratio (Tangent) Portfolio
+- Current Portfolio Position vs Frontier
+- Optimal Weights Comparison
+- Asset-level Expected Returns and Volatilities
+- Support for Short Selling Toggle
+
 </details>
 
 ### Technical Analysis
@@ -177,6 +187,7 @@ The `/api/calculate/portfolio-full` endpoint uses Server-Sent Events (SSE) with 
 - `POST /api/calculate/indicators/all` - Calculate all 79 indicators
 - `POST /api/calculate/indicators/basic` - Calculate 5 basic indicators (fast)
 - `POST /api/calculate/benchmark-comparison` - Compare portfolio vs benchmarks
+- `POST /api/calculate/markowitz` - Calculate Markowitz Efficient Frontier analysis
 
 ### Market Data
 - `GET /api/prices/{symbol}/history` - Get historical prices for a symbol
@@ -223,6 +234,7 @@ portfolio_manager/
 │   │   │       ├── trading.py        # Trading metrics
 │   │   │       ├── technical.py      # Technical indicators
 │   │   │       ├── correlation_beta.py # Benchmark comparison
+│   │   │       ├── markowitz.py      # Efficient frontier optimization
 │   │   │       └── aggregator.py     # Indicator aggregation
 │   │   └── models/
 │   │       └── portfolio.py          # Portfolio data models
