@@ -242,3 +242,57 @@ export async function calculatePortfolioFullStream(
         reader.releaseLock();
     }
 }
+
+export interface PortfolioPoint {
+    expected_return: number;
+    volatility: number;
+    sharpe_ratio: number;
+    weights: { [symbol: string]: number };
+}
+
+export interface AssetStats {
+    expected_return: number;
+    volatility: number;
+}
+
+export interface EfficientFrontierData {
+    frontier_points: PortfolioPoint[];
+    gmv_portfolio: PortfolioPoint;
+    tangent_portfolio: PortfolioPoint | null;
+    current_portfolio: PortfolioPoint;
+    asset_stats: { [symbol: string]: AssetStats };
+    allow_short_selling: boolean;
+}
+
+export interface MarkowitzParams {
+    allow_short_selling?: boolean;
+    risk_free_rate?: number;
+    num_frontier_points?: number;
+}
+
+export async function calculateMarkowitz(
+    portfolio: Portfolio,
+    data: any[],
+    params: MarkowitzParams = {}
+): Promise<EfficientFrontierData> {
+    const response = await fetch(`${API_BASE_URL}/calculate/markowitz`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            portfolio,
+            data,
+            params: {
+                allow_short_selling: params.allow_short_selling ?? false,
+                risk_free_rate: params.risk_free_rate ?? 0.0,
+                num_frontier_points: params.num_frontier_points ?? 50
+            }
+        }),
+    });
+    if (!response.ok) {
+        const error = await safeJsonParse(response);
+        throw new Error(error.detail || 'Failed to calculate efficient frontier');
+    }
+    return safeJsonParse(response);
+}

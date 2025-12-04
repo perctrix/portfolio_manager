@@ -139,7 +139,19 @@ from .correlation_beta import (
 
 from .aggregator import (
     calculate_all_portfolio_indicators,
-    calculate_basic_portfolio_indicators
+    calculate_basic_portfolio_indicators,
+    calculate_markowitz_analysis
+)
+
+from .markowitz import (
+    calculate_expected_returns,
+    calculate_gmv_portfolio,
+    calculate_tangent_portfolio,
+    calculate_efficient_portfolio_for_return,
+    generate_efficient_frontier,
+    calculate_current_portfolio_position,
+    calculate_asset_statistics,
+    calculate_efficient_frontier_analysis
 )
 
 def calculate_basic_metrics(nav_series):
@@ -308,6 +320,15 @@ __all__ = [
     'calculate_downside_capture',
     'calculate_all_portfolio_indicators',
     'calculate_basic_portfolio_indicators',
+    'calculate_markowitz_analysis',
+    'calculate_expected_returns',
+    'calculate_gmv_portfolio',
+    'calculate_tangent_portfolio',
+    'calculate_efficient_portfolio_for_return',
+    'generate_efficient_frontier',
+    'calculate_current_portfolio_position',
+    'calculate_asset_statistics',
+    'calculate_efficient_frontier_analysis',
     'calculate_basic_metrics',
     'calculate_risk_metrics',
     'calculate_allocation_metrics',

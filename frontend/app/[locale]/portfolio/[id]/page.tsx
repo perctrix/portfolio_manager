@@ -19,9 +19,10 @@ import IndicatorGrid from '@/components/IndicatorGrid';
 import MonthlyReturnsTable from '@/components/MonthlyReturnsTable';
 import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
+import EfficientFrontier from '@/components/EfficientFrontier';
 import { Eye, EyeOff, Download, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData } from '@/lib/storage';
-import { calculatePortfolioFullStream, getPriceHistory, getBenchmarkHistory, BenchmarkComparison } from '@/lib/api';
+import { calculatePortfolioFullStream, getPriceHistory, getBenchmarkHistory, BenchmarkComparison, calculateMarkowitz, EfficientFrontierData } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
 
 export default function PortfolioDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +56,9 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [dismissedDepositPrompt, setDismissedDepositPrompt] = useState(false);
     const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
     const [editingTransactionData, setEditingTransactionData] = useState<any | null>(null);
+    const [efficientFrontierData, setEfficientFrontierData] = useState<EfficientFrontierData | null>(null);
+    const [loadingMarkowitz, setLoadingMarkowitz] = useState(false);
+    const [allowShortSelling, setAllowShortSelling] = useState(false);
 
     useEffect(() => {
         const dismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
@@ -336,6 +340,33 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             newExpanded.add(section);
         }
         setExpandedSections(newExpanded);
+    }
+
+    async function loadMarkowitzData(shortSelling: boolean) {
+        const portfolioData = getPortfolio(id);
+        if (!portfolioData) return;
+
+        const weights = allIndicators?.allocation?.weights;
+        if (!weights || Object.keys(weights).length < 2) return;
+
+        setLoadingMarkowitz(true);
+        try {
+            const result = await calculateMarkowitz(
+                portfolioData.meta,
+                portfolioData.data,
+                { allow_short_selling: shortSelling }
+            );
+            setEfficientFrontierData(result);
+        } catch (error) {
+            console.error('Failed to calculate efficient frontier:', error);
+        } finally {
+            setLoadingMarkowitz(false);
+        }
+    }
+
+    function handleShortSellingToggle(allow: boolean) {
+        setAllowShortSelling(allow);
+        loadMarkowitzData(allow);
     }
 
     if (loading) {
@@ -783,6 +814,27 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                                 onToggle={() => toggleSection('risk_decomposition')}
                             >
                                 <RiskDecomposition riskDecomp={allIndicators.risk_decomposition} />
+                            </IndicatorCategory>
+                        )}
+
+                        {allIndicators.allocation && Object.keys(allIndicators.allocation.weights).length >= 2 && (
+                            <IndicatorCategory
+                                title={tIndicators('efficientFrontier')}
+                                description={tIndicators('efficientFrontierDesc')}
+                                isOpen={expandedSections.has('efficient_frontier')}
+                                onToggle={() => {
+                                    toggleSection('efficient_frontier');
+                                    if (!efficientFrontierData && !loadingMarkowitz) {
+                                        loadMarkowitzData(allowShortSelling);
+                                    }
+                                }}
+                            >
+                                <EfficientFrontier
+                                    data={efficientFrontierData}
+                                    loading={loadingMarkowitz}
+                                    onToggleShortSelling={handleShortSellingToggle}
+                                    allowShortSelling={allowShortSelling}
+                                />
                             </IndicatorCategory>
                         )}
 
