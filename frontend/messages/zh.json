@@ -343,5 +343,16 @@
     "typeMismatchWarning": "CSV 数据似乎是 {detected} 类型，但所选组合是 {portfolio} 类型。部分字段可能无法正确映射。",
     "snapshotMergeWarning": "导入的数据将覆盖相同 symbol 的现有持仓。",
     "transactionMergeWarning": "重复的交易记录（相同时间、symbol、方向、数量、价格）将被跳过。"
+  },
+  "Import": {
+    "cacheDecisionTitle": "导入分析缓存",
+    "cacheDecisionDescription": "投资组合 \"{name}\" 包含已缓存的分析结果。",
+    "calculatedOn": "计算时间",
+    "daysAgo": "{days} 天前",
+    "useCachedResults": "使用缓存结果",
+    "recalculate": "重新计算",
+    "cancel": "取消",
+    "hashMismatchWarning": "警告：投资组合数据自分析计算以来已被修改。缓存结果将被丢弃，指标将重新计算。",
+    "cacheInfo": "使用缓存结果将立即加载。重新计算将获取最新价格，可能需要几秒钟。"
   }
 }
