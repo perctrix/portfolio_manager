@@ -4,8 +4,9 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio } from '@/types';
+import { Portfolio, AnalysisCache } from '@/types';
 import { AllIndicators } from '@/types/indicators';
+import { calculateDataHash } from '@/utils/hash';
 import { MetricsCard } from '@/components/MetricsCard';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { LoadingProgress } from '@/components/LoadingProgress';
@@ -21,7 +22,7 @@ import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import EfficientFrontier from '@/components/EfficientFrontier';
 import { Eye, EyeOff, Download, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData } from '@/lib/storage';
+import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData, saveAnalysisCache, clearAnalysisCache } from '@/lib/storage';
 import { calculatePortfolioFullStream, getPriceHistory, getBenchmarkHistory, BenchmarkComparison, calculateMarkowitz, EfficientFrontierData } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
 
@@ -88,15 +89,44 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             setHoldings(sortedData);
 
             if (portfolioData.data.length > 0) {
+                if (portfolioData.analysis) {
+                    const currentHash = await calculateDataHash(portfolioData.data);
+                    if (currentHash === portfolioData.analysis.dataHash) {
+                        setNavHistory(portfolioData.analysis.navHistory);
+                        setCashHistory(portfolioData.analysis.cashHistory);
+                        setAllIndicators(portfolioData.analysis.allIndicators as AllIndicators | null);
+                        setBenchmarkComparison(portfolioData.analysis.benchmarkComparison as BenchmarkComparison | null);
+                        setLoadingStep(6);
+                        setLoading(false);
+                        return;
+                    } else {
+                        clearAnalysisCache(id);
+                    }
+                }
+
+                const cacheData: {
+                    navHistory: Array<{date: string, value: number}>;
+                    cashHistory: Array<{date: string, value: number}>;
+                    allIndicators: AllIndicators | null;
+                    benchmarkComparison: BenchmarkComparison | null;
+                } = {
+                    navHistory: [],
+                    cashHistory: [],
+                    allIndicators: null,
+                    benchmarkComparison: null
+                };
+
                 await calculatePortfolioFullStream(
                     portfolioData.meta,
                     portfolioData.data,
                     {
-                        onPricesLoaded: (data) => {
+                        onPricesLoaded: () => {
                             setLoadingStep(1);
                         },
 
                         onNavCalculated: (data) => {
+                            cacheData.navHistory = data.nav;
+                            cacheData.cashHistory = data.cash || [];
                             setNavHistory(data.nav);
                             setCashHistory(data.cash || []);
                             setLoadingStep(2);
@@ -108,18 +138,32 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         },
 
                         onIndicatorsAllCalculated: (data) => {
+                            cacheData.allIndicators = data;
                             setAllIndicators(data);
                             setLoadingStep(4);
                         },
 
                         onBenchmarkComparisonCalculated: (data) => {
+                            cacheData.benchmarkComparison = data.benchmarks;
                             setBenchmarkComparison(data.benchmarks);
                             setLoadingBenchmarkComparison(false);
                             setLoadingStep(5);
                         },
 
-                        onComplete: (data) => {
+                        onComplete: async (data) => {
                             setLoadingStep(6);
+
+                            const dataHash = await calculateDataHash(portfolioData.data);
+                            const analysisCache: AnalysisCache = {
+                                version: '1.0',
+                                calculatedAt: new Date().toISOString(),
+                                dataHash,
+                                navHistory: cacheData.navHistory,
+                                cashHistory: cacheData.cashHistory,
+                                allIndicators: cacheData.allIndicators,
+                                benchmarkComparison: cacheData.benchmarkComparison
+                            };
+                            saveAnalysisCache(id, analysisCache);
 
                             const isDismissed = localStorage.getItem(`dismissed-deposit-${id}`) === 'true';
                             if (data.suggested_initial_deposit &&
@@ -243,14 +287,29 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
     const router = useRouter();
 
-    function handleExport() {
+    async function handleExport() {
         try {
             const portfolioData = getPortfolio(id);
             if (!portfolioData) throw new Error('Portfolio not found');
 
+            let analysis: AnalysisCache | undefined;
+            if (allIndicators && navHistory.length > 0) {
+                const dataHash = await calculateDataHash(portfolioData.data);
+                analysis = {
+                    version: '1.0',
+                    calculatedAt: new Date().toISOString(),
+                    dataHash,
+                    navHistory,
+                    cashHistory,
+                    allIndicators,
+                    benchmarkComparison
+                };
+            }
+
             const exportData = {
                 meta: portfolioData.meta,
-                data: portfolioData.data
+                data: portfolioData.data,
+                analysis
             };
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
