@@ -1,3 +1,6 @@
+import type { AllIndicators } from './indicators';
+export type { AllIndicators } from './indicators';
+
 export type PortfolioType = 'transaction' | 'snapshot';
 
 export interface Portfolio {
@@ -32,14 +35,34 @@ export interface NavDataPoint {
     value: number;
 }
 
+export interface BenchmarkMetrics {
+    beta: number;
+    alpha: number;
+    r_squared: number;
+    correlation: number;
+    tracking_error: number;
+    information_ratio: number;
+    treynor_ratio?: number;
+    m2_measure?: number;
+    upside_capture?: number;
+    downside_capture?: number;
+}
+
+export interface BenchmarkComparison {
+    [symbol: string]: {
+        name: string;
+        metrics: BenchmarkMetrics;
+    };
+}
+
 export interface AnalysisCache {
     version: string;
     calculatedAt: string;
     dataHash: string;
     navHistory: NavDataPoint[];
     cashHistory: NavDataPoint[];
-    allIndicators: unknown;
-    benchmarkComparison: unknown;
+    allIndicators: AllIndicators | null;
+    benchmarkComparison: BenchmarkComparison | null;
 }
 
 export interface ExportPortfolioData {

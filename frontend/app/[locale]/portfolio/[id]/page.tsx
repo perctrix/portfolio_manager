@@ -94,8 +94,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     if (currentHash === portfolioData.analysis.dataHash) {
                         setNavHistory(portfolioData.analysis.navHistory);
                         setCashHistory(portfolioData.analysis.cashHistory);
-                        setAllIndicators(portfolioData.analysis.allIndicators as AllIndicators | null);
-                        setBenchmarkComparison(portfolioData.analysis.benchmarkComparison as BenchmarkComparison | null);
+                        setAllIndicators(portfolioData.analysis.allIndicators);
+                        setBenchmarkComparison(portfolioData.analysis.benchmarkComparison);
                         setLoadingStep(6);
                         setLoading(false);
                         return;
