@@ -13,6 +13,7 @@ from collections import defaultdict
 from pydantic import BaseModel
 from app.models.portfolio import Portfolio
 from app.core import prices, engine, ticker_validator
+from app.core.indicators.aggregator import calculate_markowitz_analysis
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -52,6 +53,12 @@ def check_rate_limit(client_ip: str) -> bool:
 
 class TickerValidateRequest(BaseModel):
     symbol: str
+
+
+class MarkowitzRequest(BaseModel):
+    allow_short_selling: bool = False
+    risk_free_rate: float = 0.0
+    num_frontier_points: int = 50
 
 @router.post("/calculate/nav")
 def calculate_nav(portfolio: Portfolio, data: List[dict]):
@@ -216,6 +223,65 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
     except Exception as e:
         logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/calculate/markowitz")
+def calculate_markowitz(portfolio: Portfolio, data: List[dict], params: MarkowitzRequest = MarkowitzRequest()):
+    """
+    Calculate Markowitz Efficient Frontier analysis for a portfolio.
+
+    Returns:
+    - frontier_points: List of (return, volatility, sharpe, weights) on efficient frontier
+    - gmv_portfolio: Global Minimum Variance portfolio
+    - tangent_portfolio: Maximum Sharpe Ratio portfolio (if feasible)
+    - current_portfolio: Current portfolio position
+    - asset_stats: Per-asset expected return and volatility
+
+    Request body: {
+        "portfolio": {...portfolio metadata...},
+        "data": [...transactions or positions...],
+        "params": {
+            "allow_short_selling": false,
+            "risk_free_rate": 0.0,
+            "num_frontier_points": 50
+        }
+    }
+    """
+    try:
+        eng = engine.PortfolioEngine(portfolio, data)
+        base_data = eng._prepare_base_data()
+
+        if base_data['price_history'].empty:
+            raise HTTPException(status_code=400, detail="Insufficient price history")
+
+        if len(base_data['weights']) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 assets required for efficient frontier analysis"
+            )
+
+        result = calculate_markowitz_analysis(
+            price_history=base_data['price_history'],
+            weights=base_data['weights'],
+            risk_free_rate=params.risk_free_rate,
+            allow_short_selling=params.allow_short_selling,
+            num_frontier_points=params.num_frontier_points
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to calculate efficient frontier. Check if there is sufficient price history."
+            )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Markowitz calculation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 async def load_prices_batch(symbols: List[str]) -> Dict[str, pd.DataFrame]:
     """Load multiple symbols' prices in parallel.
