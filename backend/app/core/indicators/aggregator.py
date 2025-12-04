@@ -10,6 +10,7 @@ from . import allocation as allocation_module
 from . import trading as trading_module
 from . import tail_risk as tail_risk_module
 from . import correlation_beta
+from . import markowitz as markowitz_module
 
 def sanitize_for_json(obj: Any) -> Any:
     """Recursively convert NaN and Inf values to None for JSON serialization"""
@@ -248,4 +249,48 @@ def calculate_benchmark_comparison(
         benchmark_returns_dict,
         risk_free_rate
     )
+    return sanitize_for_json(result)
+
+
+def calculate_markowitz_analysis(
+    price_history: pd.DataFrame,
+    weights: Dict[str, float],
+    risk_free_rate: float = 0.0,
+    allow_short_selling: bool = False,
+    num_frontier_points: int = 50
+) -> Optional[Dict[str, Any]]:
+    """Calculate Markowitz efficient frontier analysis.
+
+    Args:
+        price_history: Price history DataFrame (columns=assets)
+        weights: Current portfolio weights
+        risk_free_rate: Annual risk-free rate
+        allow_short_selling: Whether to allow short positions
+        num_frontier_points: Number of points on the frontier
+
+    Returns:
+        Dictionary with efficient frontier data for API response, or None if insufficient data
+    """
+    if price_history.empty or len(weights) < 2:
+        return None
+
+    symbols = [s for s in weights.keys() if s in price_history.columns]
+    if len(symbols) < 2:
+        return None
+
+    returns_df = price_history[symbols].pct_change(fill_method=None).dropna()
+    if len(returns_df) < 30:
+        return None
+
+    result = markowitz_module.calculate_efficient_frontier_analysis(
+        returns_df=returns_df,
+        current_weights={s: weights[s] for s in symbols},
+        risk_free_rate=risk_free_rate,
+        allow_short_selling=allow_short_selling,
+        num_frontier_points=num_frontier_points
+    )
+
+    if result is None:
+        return None
+
     return sanitize_for_json(result)
