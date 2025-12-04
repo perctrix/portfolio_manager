@@ -26,3 +26,24 @@ export interface ImportPortfolioData {
     };
     data: Array<Record<string, any>>;
 }
+
+export interface NavDataPoint {
+    date: string;
+    value: number;
+}
+
+export interface AnalysisCache {
+    version: string;
+    calculatedAt: string;
+    dataHash: string;
+    navHistory: NavDataPoint[];
+    cashHistory: NavDataPoint[];
+    allIndicators: Record<string, unknown> | null;
+    benchmarkComparison: Record<string, unknown> | null;
+}
+
+export interface ExportPortfolioData {
+    meta: Portfolio;
+    data: Array<Record<string, unknown>>;
+    analysis?: AnalysisCache;
+}
