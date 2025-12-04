@@ -38,8 +38,8 @@ export interface AnalysisCache {
     dataHash: string;
     navHistory: NavDataPoint[];
     cashHistory: NavDataPoint[];
-    allIndicators: Record<string, unknown> | null;
-    benchmarkComparison: Record<string, unknown> | null;
+    allIndicators: unknown;
+    benchmarkComparison: unknown;
 }
 
 export interface ExportPortfolioData {
