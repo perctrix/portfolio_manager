@@ -11,7 +11,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
-from app.models.portfolio import Portfolio
+from app.models.portfolio import Portfolio, BondPosition
 from app.core import prices, engine, ticker_validator
 from app.core.indicators.aggregator import calculate_markowitz_analysis
 
@@ -60,17 +60,24 @@ class MarkowitzRequest(BaseModel):
     risk_free_rate: float = 0.0
     num_frontier_points: int = 50
 
+
+class PortfolioCalculateRequest(BaseModel):
+    portfolio: Portfolio
+    data: List[dict]
+    bonds: List[BondPosition] = []
+
 @router.post("/calculate/nav")
-def calculate_nav(portfolio: Portfolio, data: List[dict]):
+def calculate_nav(request: PortfolioCalculateRequest):
     """
     Calculate NAV history for a portfolio.
     Request body: {
         "portfolio": {...portfolio metadata...},
-        "data": [...transactions or positions...]
+        "data": [...transactions or positions...],
+        "bonds": [...bond positions (optional)...]
     }
     """
     try:
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         nav = eng.calculate_nav_history()
         result = {
             "nav": [{"date": d.strftime("%Y-%m-%d") if hasattr(d, 'strftime') else str(d)[:10], "value": v} for d, v in nav.items()],
@@ -84,7 +91,7 @@ def calculate_nav(portfolio: Portfolio, data: List[dict]):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/calculate/indicators")
-def calculate_indicators(portfolio: Portfolio, data: List[dict]):
+def calculate_indicators(request: PortfolioCalculateRequest):
     """
     Calculate performance indicators for a portfolio (legacy endpoint).
 
@@ -92,13 +99,13 @@ def calculate_indicators(portfolio: Portfolio, data: List[dict]):
     For new implementations, use /calculate/indicators/all or /calculate/indicators/basic.
     """
     try:
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         return eng.get_indicators()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/calculate/indicators/all")
-def calculate_all_indicators(portfolio: Portfolio, data: List[dict]):
+def calculate_all_indicators(request: PortfolioCalculateRequest):
     """
     Calculate all performance indicators for a portfolio (approximately 79 indicators).
 
@@ -114,17 +121,18 @@ def calculate_all_indicators(portfolio: Portfolio, data: List[dict]):
 
     Request body: {
         "portfolio": {...portfolio metadata...},
-        "data": [...transactions or positions...]
+        "data": [...transactions or positions...],
+        "bonds": [...bond positions (optional)...]
     }
     """
     try:
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         return eng.get_all_indicators()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/calculate/indicators/basic")
-def calculate_basic_indicators(portfolio: Portfolio, data: List[dict]):
+def calculate_basic_indicators(request: PortfolioCalculateRequest):
     """
     Calculate 5 basic performance indicators for a portfolio (fast query).
 
@@ -137,11 +145,12 @@ def calculate_basic_indicators(portfolio: Portfolio, data: List[dict]):
 
     Request body: {
         "portfolio": {...portfolio metadata...},
-        "data": [...transactions or positions...]
+        "data": [...transactions or positions...],
+        "bonds": [...bond positions (optional)...]
     }
     """
     try:
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         return eng.get_basic_indicators()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -161,7 +170,7 @@ def get_price_history(symbol: str):
 
 
 @router.post("/calculate/benchmark-comparison")
-def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
+def portfolio_benchmark_comparison(request: PortfolioCalculateRequest):
     """
     Calculate portfolio performance relative to all available benchmark indices.
 
@@ -175,14 +184,15 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
 
     Request body: {
         "portfolio": {...portfolio metadata...},
-        "data": [...transactions or positions...]
+        "data": [...transactions or positions...],
+        "bonds": [...bond positions (optional)...]
     }
     """
     try:
         from app.core.benchmarks import get_benchmark_loader
         from app.core.indicators.aggregator import calculate_benchmark_comparison
 
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         nav = eng.calculate_nav_history()
 
         if nav.empty:
@@ -225,8 +235,15 @@ def portfolio_benchmark_comparison(portfolio: Portfolio, data: List[dict]):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class MarkowitzCalculateRequest(BaseModel):
+    portfolio: Portfolio
+    data: List[dict]
+    bonds: List[BondPosition] = []
+    params: MarkowitzRequest = MarkowitzRequest()
+
+
 @router.post("/calculate/markowitz")
-def calculate_markowitz(portfolio: Portfolio, data: List[dict], params: MarkowitzRequest = MarkowitzRequest()):
+def calculate_markowitz(request: MarkowitzCalculateRequest):
     """
     Calculate Markowitz Efficient Frontier analysis for a portfolio.
 
@@ -240,6 +257,7 @@ def calculate_markowitz(portfolio: Portfolio, data: List[dict], params: Markowit
     Request body: {
         "portfolio": {...portfolio metadata...},
         "data": [...transactions or positions...],
+        "bonds": [...bond positions (optional)...],
         "params": {
             "allow_short_selling": false,
             "risk_free_rate": 0.0,
@@ -248,7 +266,7 @@ def calculate_markowitz(portfolio: Portfolio, data: List[dict], params: Markowit
     }
     """
     try:
-        eng = engine.PortfolioEngine(portfolio, data)
+        eng = engine.PortfolioEngine(request.portfolio, request.data, request.bonds)
         base_data = eng._prepare_base_data()
 
         if base_data['price_history'].empty:
@@ -263,9 +281,9 @@ def calculate_markowitz(portfolio: Portfolio, data: List[dict], params: Markowit
         result = calculate_markowitz_analysis(
             price_history=base_data['price_history'],
             weights=base_data['weights'],
-            risk_free_rate=params.risk_free_rate,
-            allow_short_selling=params.allow_short_selling,
-            num_frontier_points=params.num_frontier_points
+            risk_free_rate=request.params.risk_free_rate,
+            allow_short_selling=request.params.allow_short_selling,
+            num_frontier_points=request.params.num_frontier_points
         )
 
         if result is None:
@@ -339,8 +357,14 @@ async def load_benchmarks_batch(
     return formatted, raw_cache
 
 
+class PortfolioFullRequest(BaseModel):
+    portfolio: Portfolio
+    data: List[dict]
+    bonds: List[BondPosition] = []
+
+
 @router.post("/calculate/portfolio-full")
-async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]):
+async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
     """
     SSE streaming endpoint with parallel I/O and caching.
 
@@ -352,6 +376,9 @@ async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]
     5. indicators_all_calculated - all indicators
     6. complete - completion marker
     """
+    portfolio = request.portfolio
+    data = request.data
+    bonds = request.bonds
 
     async def event_generator():
         try:
@@ -393,7 +420,7 @@ async def calculate_portfolio_full_stream(portfolio: Portfolio, data: List[dict]
             yield f"data: {json.dumps({'prices': price_data, 'benchmarks': benchmark_formatted})}\n\n"
 
             # Create engine with pre-loaded price cache
-            eng = engine.PortfolioEngine(portfolio, data)
+            eng = engine.PortfolioEngine(portfolio, data, bonds)
             eng.set_price_cache(price_cache)
             nav = eng.calculate_nav_history()
 

@@ -1,17 +1,26 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime
-from typing import Any, Dict, Optional
-from app.models.portfolio import Portfolio, PortfolioType
+from datetime import datetime, date
+from typing import Any, Dict, List, Optional
+from app.models.portfolio import Portfolio, PortfolioType, BondPosition
 from app.core import prices
 from app.core import indicators
+from app.core import bonds as bond_utils
 
 class PortfolioEngine:
-    def __init__(self, portfolio: Portfolio, data: list[dict]):
+    def __init__(
+        self,
+        portfolio: Portfolio,
+        data: list[dict],
+        bonds: Optional[List[BondPosition]] = None
+    ):
         self.portfolio: Portfolio = portfolio
+        self.bonds: List[BondPosition] = bonds or []
         self.failed_tickers: list[str] = []
         self.suggested_initial_deposit: float = 0.0
         self.cash_history: pd.Series = pd.Series()
+        self.bond_coupon_history: pd.Series = pd.Series()
+        self.bond_maturity_cash: pd.Series = pd.Series()
 
         # Request-scoped caches
         self._price_cache: Dict[str, pd.DataFrame] = {}
@@ -134,130 +143,174 @@ class PortfolioEngine:
         """Internal implementation of NAV history calculation."""
         if self.portfolio.type == PortfolioType.SNAPSHOT:
             positions = self.positions
-            if positions.empty:
-                return pd.Series()
-                
-            # Get all symbols
-            symbols = positions['symbol'].unique()
-            price_data = {}
+            has_positions = not positions.empty
+            has_bonds = len(self.bonds) > 0
 
-            # Load prices
-            for sym in symbols:
-                df = self._get_price_history(sym)
-                if not df.empty:
-                    price_data[sym] = df['Close']
-                else:
-                    self.failed_tickers.append(sym)
-            
-            if not price_data:
+            if not has_positions and not has_bonds:
                 return pd.Series()
-                
-            # Align dates (inner join to find common history)
-            price_df = pd.DataFrame(price_data).dropna()
-            
-            if price_df.empty:
+
+            price_data: Dict[str, pd.Series] = {}
+
+            if has_positions:
+                symbols = positions['symbol'].unique()
+                for sym in symbols:
+                    df = self._get_price_history(sym)
+                    if not df.empty:
+                        price_data[sym] = df['Close']
+                    else:
+                        self.failed_tickers.append(sym)
+
+            if not price_data and not has_bonds:
                 return pd.Series()
-                
-            # Calculate NAV
-            nav = pd.Series(0.0, index=price_df.index)
-            
-            for _, row in positions.iterrows():
-                sym = row['symbol']
-                qty = row['quantity']
-                if sym in price_df.columns:
-                    nav += price_df[sym] * qty
-                    
+
+            if price_data:
+                price_df = pd.DataFrame(price_data).dropna()
+            else:
+                price_df = pd.DataFrame()
+
+            if price_df.empty and not has_bonds:
+                return pd.Series()
+
+            if not price_df.empty:
+                nav = pd.Series(0.0, index=price_df.index)
+                for _, row in positions.iterrows():
+                    sym = row['symbol']
+                    qty = row['quantity']
+                    if sym in price_df.columns:
+                        nav += price_df[sym] * qty
+            else:
+                nav = pd.Series()
+
+            if has_bonds:
+                nav = self._add_bond_values_to_nav(nav, price_df.index if not price_df.empty else None)
+
             return nav
             
         elif self.portfolio.type == PortfolioType.TRANSACTION:
             txns = self.transactions
-            if txns.empty:
+            has_txns = not txns.empty
+            has_bonds = len(self.bonds) > 0
+
+            if not has_txns and not has_bonds:
                 return pd.Series()
 
-            # Check if there is an initial DEPOSIT
-            txns_sorted = txns.sort_values('datetime')
-            deposit_txns = txns_sorted[txns_sorted['side'].str.upper() == 'DEPOSIT']
-            has_initial_deposit = False
             initial_cash = 0.0
-            initial_deposit_indices = set()
+            initial_deposit_indices: set = set()
+            start_date = datetime.now().date()
 
-            if not deposit_txns.empty:
-                # Find first BUY/SELL transaction
-                trade_txns = txns_sorted[txns_sorted['side'].str.upper().isin(['BUY', 'SELL'])]
+            if has_txns:
+                txns_sorted = txns.sort_values('datetime')
+                deposit_txns = txns_sorted[txns_sorted['side'].str.upper() == 'DEPOSIT']
+                has_initial_deposit = False
 
-                if not trade_txns.empty:
-                    first_trade_time = trade_txns.iloc[0]['datetime']
-                    # Check if any DEPOSIT exists before or at the same time as first trade
-                    # Use floor to minute to handle precision issues
-                    first_trade_time_floored = first_trade_time.floor('min')
-                    early_deposits = deposit_txns[deposit_txns['datetime'].dt.floor('min') <= first_trade_time_floored]
+                if not deposit_txns.empty:
+                    trade_txns = txns_sorted[txns_sorted['side'].str.upper().isin(['BUY', 'SELL'])]
 
-                    if not early_deposits.empty:
+                    if not trade_txns.empty:
+                        first_trade_time = trade_txns.iloc[0]['datetime']
+                        first_trade_time_floored = first_trade_time.floor('min')
+                        early_deposits = deposit_txns[deposit_txns['datetime'].dt.floor('min') <= first_trade_time_floored]
+
+                        if not early_deposits.empty:
+                            has_initial_deposit = True
+                            initial_cash = early_deposits['quantity'].sum()
+                            initial_deposit_indices = set(early_deposits.index)
+                    else:
                         has_initial_deposit = True
-                        initial_cash = early_deposits['quantity'].sum()
-                        initial_deposit_indices = set(early_deposits.index)
-                else:
-                    # Only DEPOSIT transactions exist, no trades yet
-                    has_initial_deposit = True
-                    initial_cash = deposit_txns['quantity'].sum()
-                    initial_deposit_indices = set(deposit_txns.index)
+                        initial_cash = deposit_txns['quantity'].sum()
+                        initial_deposit_indices = set(deposit_txns.index)
 
-            if not has_initial_deposit:
-                suggested_amount = self._calculate_suggested_deposit(txns_sorted)
-                self.suggested_initial_deposit = suggested_amount
-                initial_cash = suggested_amount
+                if not has_initial_deposit:
+                    suggested_amount = self._calculate_suggested_deposit(txns_sorted)
+                    self.suggested_initial_deposit = suggested_amount
+                    initial_cash = suggested_amount
 
-            # Identify all symbols and date range
-            symbols = txns['symbol'].unique()
-            start_date = txns['datetime'].min().date()
-            end_date = datetime.now().date() # Or max price date
+                symbols = txns['symbol'].unique()
+                start_date = txns['datetime'].min().date()
+            else:
+                symbols = []
 
-            # Fetch prices
-            price_data = {}
+            if has_bonds:
+                bond_start = min(b.purchase_date for b in self.bonds)
+                start_date = min(start_date, bond_start) if has_txns else bond_start
+
+            end_date = datetime.now().date()
+
+            price_data: Dict[str, pd.Series] = {}
             for sym in symbols:
-                if sym == 'CASH': continue
+                if sym == 'CASH':
+                    continue
                 df = self._get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
                 else:
                     self.failed_tickers.append(sym)
-            
-            if not price_data:
+
+            if not price_data and not has_bonds:
                 return pd.Series()
 
-            # Create master price DataFrame
-            price_df = pd.DataFrame(price_data)
-            # Filter to start date
-            price_df = price_df[price_df.index.date >= start_date]
-            # Forward fill missing prices (holdings don't disappear if price is missing)
-            price_df = price_df.ffill()
+            if price_data:
+                price_df = pd.DataFrame(price_data)
+                price_df = price_df[price_df.index.date >= start_date]
+                price_df = price_df.ffill()
+            else:
+                price_df = pd.DataFrame()
 
-            # Create complete date range including all transaction dates
-            txn_dates = txns['datetime'].dt.normalize().unique()
-            all_dates = pd.DatetimeIndex(sorted(set(price_df.index.normalize()).union(set(txn_dates))))
+            if has_txns:
+                txn_dates = txns['datetime'].dt.normalize().unique()
+            else:
+                txn_dates = pd.DatetimeIndex([])
+
+            if not price_df.empty:
+                base_dates = set(price_df.index.normalize())
+            else:
+                base_dates = set()
+
+            bond_dates: set = set()
+            if has_bonds:
+                for bond in self.bonds:
+                    bond_dates.add(pd.Timestamp(bond.purchase_date))
+                    if bond.maturity_date <= end_date:
+                        bond_dates.add(pd.Timestamp(bond.maturity_date))
+                    coupons = bond_utils.generate_coupon_payments(
+                        bond, start_date, end_date
+                    )
+                    for coupon_date, _ in coupons:
+                        bond_dates.add(pd.Timestamp(coupon_date))
+
+            all_dates = pd.DatetimeIndex(sorted(
+                base_dates.union(set(txn_dates)).union(bond_dates)
+            ))
             all_dates = all_dates[all_dates.date >= start_date]
+            all_dates = all_dates[all_dates.date <= end_date]
 
-            # Reindex price_df to include all dates, forward fill prices for non-trading days
-            price_df = price_df.reindex(all_dates, method='ffill')
+            if all_dates.empty:
+                return pd.Series()
 
-            # Initialize state
-            current_holdings = {sym: 0.0 for sym in symbols}
+            if not price_df.empty:
+                price_df = price_df.reindex(all_dates, method='ffill')
+
+            current_holdings: Dict[str, float] = {sym: 0.0 for sym in symbols}
             current_cash = initial_cash
+            cumulative_coupon = 0.0
+            cumulative_maturity_cash = 0.0
+            matured_bonds: set = set()
 
-            nav_history = {}
-            cash_history = {}
+            nav_history: Dict[pd.Timestamp, float] = {}
+            cash_history: Dict[pd.Timestamp, float] = {}
+            coupon_history: Dict[pd.Timestamp, float] = {}
+            maturity_cash_history: Dict[pd.Timestamp, float] = {}
 
-            # Iterate through each day (including transaction-only days)
-            # We need to process transactions that happened on or before this day
-            # Optimization: Group txns by date
-            txns['date'] = txns['datetime'].dt.date
-            txns_by_date = txns.groupby('date')
+            if has_txns:
+                txns['date'] = txns['datetime'].dt.date
+                txns_by_date = txns.groupby('date')
+            else:
+                txns_by_date = None
 
-            for date in price_df.index:
-                d = date.date()
-                
-                # Process transactions for this day
-                if d in txns_by_date.groups:
+            for dt in all_dates:
+                d = dt.date()
+
+                if txns_by_date is not None and d in txns_by_date.groups:
                     day_txns = txns_by_date.get_group(d)
                     for idx, txn in day_txns.iterrows():
                         sym = txn['symbol']
@@ -273,24 +326,48 @@ class PortfolioEngine:
                             current_holdings[sym] = current_holdings.get(sym, 0.0) - qty
                             current_cash += (qty * price - fee)
                         elif side == 'DEPOSIT':
-                            # Skip DEPOSIT if it was already counted in initial_cash
                             if idx not in initial_deposit_indices:
                                 current_cash += qty
                         elif side == 'WITHDRAW':
                             current_cash -= qty
 
-                # Calculate NAV for this day
+                for bond in self.bonds:
+                    if d < bond.purchase_date:
+                        continue
+
+                    coupons = bond_utils.generate_coupon_payments(bond, d, d)
+                    for _, coupon_amount in coupons:
+                        current_cash += coupon_amount
+                        cumulative_coupon += coupon_amount
+
+                    if d >= bond.maturity_date and bond.id not in matured_bonds:
+                        maturity_value = bond.face_value * bond.purchase_quantity
+                        current_cash += maturity_value
+                        cumulative_maturity_cash += maturity_value
+                        matured_bonds.add(bond.id)
+
                 daily_value = current_cash
                 for sym, qty in current_holdings.items():
                     if qty != 0 and sym in price_df.columns:
-                        # Use today's price, or prev if missing
-                        if not pd.isna(price_df.at[date, sym]):
-                            daily_value += qty * price_df.at[date, sym]
+                        if not pd.isna(price_df.at[dt, sym]):
+                            daily_value += qty * price_df.at[dt, sym]
 
-                nav_history[date] = daily_value
-                cash_history[date] = current_cash
+                for bond in self.bonds:
+                    if d < bond.purchase_date:
+                        continue
+                    if bond.id in matured_bonds:
+                        continue
+                    bond_value = bond_utils.calculate_bond_value(bond, d)
+                    daily_value += bond_value
+
+                nav_history[dt] = daily_value
+                cash_history[dt] = current_cash
+                coupon_history[dt] = cumulative_coupon
+                maturity_cash_history[dt] = cumulative_maturity_cash
 
             self.cash_history = pd.Series(cash_history)
+            self.bond_coupon_history = pd.Series(coupon_history)
+            self.bond_maturity_cash = pd.Series(maturity_cash_history)
             return pd.Series(nav_history)
             
         return pd.Series()
@@ -327,9 +404,46 @@ class PortfolioEngine:
 
         return basic
 
+    def _add_bond_values_to_nav(
+        self,
+        nav: pd.Series,
+        date_index: Optional[pd.DatetimeIndex] = None
+    ) -> pd.Series:
+        """Add bond values to NAV series for SNAPSHOT mode.
+
+        Args:
+            nav: Existing NAV series from stock positions
+            date_index: Date index to use if nav is empty
+
+        Returns:
+            NAV series with bond values added
+        """
+        if not self.bonds:
+            return nav
+
+        today = datetime.now().date()
+
+        if nav.empty and date_index is not None:
+            nav = pd.Series(0.0, index=date_index)
+        elif nav.empty:
+            earliest_purchase = min(b.purchase_date for b in self.bonds)
+            date_range = pd.date_range(start=earliest_purchase, end=today, freq='D')
+            nav = pd.Series(0.0, index=date_range)
+
+        for dt in nav.index:
+            d = dt.date() if hasattr(dt, 'date') else dt
+            bond_total = 0.0
+            for bond in self.bonds:
+                if d >= bond.purchase_date:
+                    bond_total += bond_utils.calculate_bond_value(bond, d)
+            nav.at[dt] += bond_total
+
+        return nav
+
     def _get_current_holdings(self) -> Dict[str, float]:
         """Get current holdings as {symbol: quantity}"""
-        current_holdings = {}
+        current_holdings: Dict[str, float] = {}
+        today = datetime.now().date()
 
         if self.portfolio.type == PortfolioType.SNAPSHOT:
             positions = self.positions
@@ -346,15 +460,31 @@ class PortfolioEngine:
                 elif side == 'SELL':
                     current_holdings[sym] = current_holdings.get(sym, 0.0) - qty
 
+        for bond in self.bonds:
+            if bond.purchase_date <= today:
+                if not bond_utils.is_matured(bond, today):
+                    key = f"BOND:{bond.name}"
+                    current_holdings[key] = bond.purchase_quantity
+
         return {k: v for k, v in current_holdings.items() if v != 0}
 
     def _get_current_prices(self, holdings: Dict[str, float]) -> Dict[str, float]:
         """Get current prices for holdings using cache."""
         current_prices: Dict[str, float] = {}
+        today = datetime.now().date()
+
         for sym in holdings.keys():
-            df = self._get_price_history(sym)
-            if not df.empty:
-                current_prices[sym] = float(df['Close'].iloc[-1])
+            if sym.startswith("BOND:"):
+                bond_name = sym[5:]
+                for bond in self.bonds:
+                    if bond.name == bond_name:
+                        value = bond_utils.calculate_bond_value(bond, today)
+                        current_prices[sym] = value / bond.purchase_quantity
+                        break
+            else:
+                df = self._get_price_history(sym)
+                if not df.empty:
+                    current_prices[sym] = float(df['Close'].iloc[-1])
         return current_prices
 
     def _calculate_weights(self, holdings: Dict[str, float], prices: Dict[str, float]) -> Dict[str, float]:
