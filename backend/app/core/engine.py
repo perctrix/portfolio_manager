@@ -501,6 +501,8 @@ class PortfolioEngine:
         """Build price history DataFrame for holdings using cache."""
         price_data: Dict[str, pd.Series] = {}
         for sym in holdings.keys():
+            if sym.startswith("BOND:"):
+                continue
             df = self._get_price_history(sym)
             if not df.empty:
                 price_data[sym] = df['Close']
