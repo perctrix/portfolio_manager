@@ -96,6 +96,18 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         setCashHistory(portfolioData.analysis.cashHistory);
                         setAllIndicators(portfolioData.analysis.allIndicators);
                         setBenchmarkComparison(portfolioData.analysis.benchmarkComparison);
+                        if (portfolioData.analysis.allIndicators) {
+                            const cached = portfolioData.analysis.allIndicators;
+                            setIndicators({
+                                total_return: cached.returns?.total_return ?? 0,
+                                cagr: cached.returns?.cagr ?? 0,
+                                sharpe: cached.risk_adjusted_ratios?.sharpe ?? 0,
+                                max_drawdown: cached.drawdown?.max_drawdown ?? 0,
+                                sortino: cached.risk_adjusted_ratios?.sortino ?? 0,
+                                calmar: cached.risk_adjusted_ratios?.calmar ?? 0,
+                                var_95: cached.tail_risk?.var_95 ?? 0,
+                            });
+                        }
                         setLoadingStep(6);
                         setLoading(false);
                         return;
