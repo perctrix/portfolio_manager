@@ -1,4 +1,4 @@
-import { Portfolio } from '@/types';
+import { Portfolio, BenchmarkComparison, BenchmarkMetrics } from '@/types';
 import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -115,25 +115,7 @@ export async function getBenchmarkHistory(symbol: string): Promise<Array<{date: 
     return safeJsonParse(response);
 }
 
-export interface BenchmarkMetrics {
-    beta: number;
-    alpha: number;
-    r_squared: number;
-    correlation: number;
-    tracking_error: number;
-    information_ratio: number;
-    treynor_ratio?: number;
-    m2_measure?: number;
-    upside_capture?: number;
-    downside_capture?: number;
-}
-
-export interface BenchmarkComparison {
-    [symbol: string]: {
-        name: string;
-        metrics: BenchmarkMetrics;
-    };
-}
+export type { BenchmarkComparison, BenchmarkMetrics };
 
 export async function calculateBenchmarkComparison(portfolio: Portfolio, data: any[]): Promise<BenchmarkComparison> {
     const response = await fetch(`${API_BASE_URL}/calculate/benchmark-comparison`, {

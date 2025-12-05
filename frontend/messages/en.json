@@ -343,5 +343,16 @@
     "typeMismatchWarning": "CSV data appears to be {detected} type, but the selected portfolio is {portfolio} type. Some fields may not map correctly.",
     "snapshotMergeWarning": "Imported data will override existing positions with the same symbol.",
     "transactionMergeWarning": "Duplicate transactions (same datetime, symbol, side, quantity, price) will be skipped."
+  },
+  "Import": {
+    "cacheDecisionTitle": "Import Analysis Cache",
+    "cacheDecisionDescription": "Portfolio \"{name}\" contains cached analysis results.",
+    "calculatedOn": "Calculated on",
+    "daysAgo": "{days} day(s) ago",
+    "useCachedResults": "Use Cached Results",
+    "recalculate": "Recalculate",
+    "cancel": "Cancel",
+    "hashMismatchWarning": "Warning: The portfolio data has been modified since the analysis was calculated. The cached results will be discarded and indicators will be recalculated.",
+    "cacheInfo": "Using cached results will load instantly. Recalculating will fetch latest prices and may take a few seconds."
   }
 }

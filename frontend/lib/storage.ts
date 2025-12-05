@@ -1,10 +1,11 @@
-import { Portfolio } from '@/types';
+import { Portfolio, AnalysisCache } from '@/types';
 
 const PORTFOLIOS_KEY = 'portfolios';
 
 export interface PortfolioData {
     meta: Portfolio;
     data: any[];
+    analysis?: AnalysisCache;
 }
 
 export function getAllPortfolios(): Record<string, PortfolioData> {
@@ -42,6 +43,7 @@ export function updatePortfolioData(id: string, data: any[]): void {
     const portfolios = getAllPortfolios();
     if (portfolios[id]) {
         portfolios[id].data = data;
+        delete portfolios[id].analysis;
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }
@@ -51,6 +53,7 @@ export function addTransaction(id: string, transaction: any): void {
     const portfolios = getAllPortfolios();
     if (portfolios[id]) {
         portfolios[id].data.push(transaction);
+        delete portfolios[id].analysis;
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }
@@ -60,6 +63,7 @@ export function updateTransaction(id: string, index: number, transaction: any): 
     const portfolios = getAllPortfolios();
     if (portfolios[id] && portfolios[id].data[index]) {
         portfolios[id].data[index] = transaction;
+        delete portfolios[id].analysis;
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }
@@ -69,6 +73,25 @@ export function deleteTransaction(id: string, index: number): void {
     const portfolios = getAllPortfolios();
     if (portfolios[id] && portfolios[id].data[index] !== undefined) {
         portfolios[id].data.splice(index, 1);
+        delete portfolios[id].analysis;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function saveAnalysisCache(id: string, analysis: AnalysisCache): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[id]) {
+        portfolios[id].analysis = analysis;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function clearAnalysisCache(id: string): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[id]) {
+        delete portfolios[id].analysis;
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }

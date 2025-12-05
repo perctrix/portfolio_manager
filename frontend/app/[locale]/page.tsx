@@ -3,17 +3,22 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio, PortfolioType } from '@/types';
+import { Portfolio, PortfolioType, ExportPortfolioData } from '@/types';
 import { getAllPortfolios, savePortfolio, getPortfolio } from '@/lib/storage';
 import { ImportCSVModal } from '@/components/ImportCSVModal';
+import { ImportCacheDecisionModal } from '@/components/ImportCacheDecisionModal';
+import { calculateDataHash, isToday } from '@/utils/hash';
 
 export default function Home() {
   const t = useTranslations('Home');
+  const tImport = useTranslations('Import');
   const locale = useLocale();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [pendingCSVFile, setPendingCSVFile] = useState<File | null>(null);
+  const [showCacheDecisionModal, setShowCacheDecisionModal] = useState(false);
+  const [pendingImport, setPendingImport] = useState<ExportPortfolioData | null>(null);
 
   useEffect(() => {
     loadPortfolios();
@@ -29,6 +34,17 @@ export default function Home() {
     }
   }
 
+  function completeImport(importData: ExportPortfolioData, useCache: boolean) {
+    savePortfolio(importData.meta.id, {
+      meta: importData.meta,
+      data: importData.data,
+      analysis: useCache ? importData.analysis : undefined
+    });
+    loadPortfolios();
+    setPendingImport(null);
+    setShowCacheDecisionModal(false);
+  }
+
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -36,27 +52,36 @@ export default function Home() {
     const isCSV = file.name.toLowerCase().endsWith('.csv');
 
     if (isCSV) {
-      // Open CSV modal for column mapping
       setPendingCSVFile(file);
       setShowCSVModal(true);
       e.target.value = '';
       return;
     }
 
-    // Handle JSON import
     try {
       const text = await file.text();
-      const importData = JSON.parse(text);
+      const importData: ExportPortfolioData = JSON.parse(text);
 
       if (!importData.meta || !importData.data) {
         throw new Error('Invalid file format');
       }
 
-      savePortfolio(importData.meta.id, {
-        meta: importData.meta,
-        data: importData.data
-      });
-      loadPortfolios();
+      if (importData.analysis) {
+        const currentHash = await calculateDataHash(importData.data);
+        const hashMatch = currentHash === importData.analysis.dataHash;
+
+        if (!hashMatch) {
+          alert(tImport('hashMismatchWarning'));
+          completeImport(importData, false);
+        } else if (isToday(importData.analysis.calculatedAt)) {
+          completeImport(importData, true);
+        } else {
+          setPendingImport(importData);
+          setShowCacheDecisionModal(true);
+        }
+      } else {
+        completeImport(importData, false);
+      }
     } catch (err) {
       console.error(err);
       alert(t('importError'));
@@ -198,6 +223,20 @@ export default function Home() {
         initialFile={pendingCSVFile}
         existingPortfolios={portfolios}
       />
+
+      {pendingImport && pendingImport.analysis && (
+        <ImportCacheDecisionModal
+          isOpen={showCacheDecisionModal}
+          onClose={() => {
+            setShowCacheDecisionModal(false);
+            setPendingImport(null);
+          }}
+          onUseCache={() => completeImport(pendingImport, true)}
+          onRecalculate={() => completeImport(pendingImport, false)}
+          calculatedAt={pendingImport.analysis.calculatedAt}
+          portfolioName={pendingImport.meta.name}
+        />
+      )}
     </main>
   );
 }
