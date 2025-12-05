@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.models.portfolio import Portfolio, PortfolioType, BondPosition
 from app.core import prices

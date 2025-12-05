@@ -12,7 +12,7 @@ interface AddBondModalProps {
 }
 
 function generateBondId(): string {
-    return `bond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `bond_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function formatDateForInput(dateStr: string | undefined): string {

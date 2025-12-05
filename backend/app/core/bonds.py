@@ -308,10 +308,15 @@ def generate_coupon_payments(
 def calculate_bond_cost_basis(bond: BondPosition) -> float:
     """Calculate total cost basis for a bond position.
 
+    The cost basis is the dirty price (clean price + accrued interest at purchase),
+    which represents the actual cash outlay when purchasing the bond.
+
     Args:
         bond: Bond position
 
     Returns:
-        Total cost basis (purchase price * face value * quantity / 100)
+        Total cost basis (dirty price at purchase * face value * quantity / 100)
     """
-    return (bond.purchase_price / 100.0) * bond.face_value * bond.purchase_quantity
+    accrued_per_100 = calculate_accrued_interest_per_100(bond, bond.purchase_date)
+    dirty_price = bond.purchase_price + accrued_per_100
+    return (dirty_price / 100.0) * bond.face_value * bond.purchase_quantity
