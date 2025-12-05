@@ -38,6 +38,7 @@ export default function Home() {
     savePortfolio(importData.meta.id, {
       meta: importData.meta,
       data: importData.data,
+      bonds: importData.bonds,
       analysis: useCache ? importData.analysis : undefined
     });
     loadPortfolios();
@@ -67,7 +68,7 @@ export default function Home() {
       }
 
       if (importData.analysis) {
-        const currentHash = await calculateDataHash(importData.data);
+        const currentHash = await calculateDataHash(importData.data, importData.bonds);
         const hashMatch = currentHash === importData.analysis.dataHash;
 
         if (!hashMatch) {
@@ -125,6 +126,7 @@ export default function Home() {
         savePortfolio(targetPortfolioId, {
           meta: existingPortfolio.meta,
           data: mergedData,
+          bonds: existingPortfolio.bonds,
         });
       }
     } else {

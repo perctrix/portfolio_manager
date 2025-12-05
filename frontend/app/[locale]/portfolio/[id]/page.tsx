@@ -98,7 +98,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             if (portfolioData.data.length > 0 || portfolioBonds.length > 0) {
                 if (portfolioData.analysis) {
-                    const currentHash = await calculateDataHash(portfolioData.data);
+                    const currentHash = await calculateDataHash(portfolioData.data, portfolioBonds);
                     if (currentHash === portfolioData.analysis.dataHash) {
                         setNavHistory(portfolioData.analysis.navHistory);
                         setCashHistory(portfolioData.analysis.cashHistory);
@@ -173,7 +173,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         onComplete: async (data) => {
                             setLoadingStep(6);
 
-                            const dataHash = await calculateDataHash(portfolioData.data);
+                            const dataHash = await calculateDataHash(portfolioData.data, portfolioBonds);
                             const analysisCache: AnalysisCache = {
                                 version: '1.0',
                                 calculatedAt: new Date().toISOString(),
@@ -357,7 +357,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             let analysis: AnalysisCache | undefined;
             if (allIndicators && navHistory.length > 0) {
-                const dataHash = await calculateDataHash(portfolioData.data);
+                const dataHash = await calculateDataHash(portfolioData.data, portfolioData.bonds);
                 analysis = {
                     version: '1.0',
                     calculatedAt: new Date().toISOString(),

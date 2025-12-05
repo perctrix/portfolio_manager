@@ -1,5 +1,6 @@
-export async function calculateDataHash(data: unknown[]): Promise<string> {
-    const normalized = JSON.stringify(data, (key, value) => {
+export async function calculateDataHash(data: unknown[], bonds?: unknown[]): Promise<string> {
+    const dataToHash = bonds && bonds.length > 0 ? { data, bonds } : data;
+    const normalized = JSON.stringify(dataToHash, (key, value) => {
         if (value && typeof value === 'object' && !Array.isArray(value)) {
             return Object.keys(value).sort().reduce((sorted: Record<string, unknown>, k) => {
                 sorted[k] = value[k];
