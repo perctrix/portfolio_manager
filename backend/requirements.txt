@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 pandas
+python-dotenv
 pydantic
 yfinance
 python-multipart
