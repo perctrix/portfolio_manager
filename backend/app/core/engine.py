@@ -294,6 +294,7 @@ class PortfolioEngine:
             current_cash = initial_cash
             cumulative_coupon = 0.0
             cumulative_maturity_cash = 0.0
+            purchased_bonds: set = set()
             matured_bonds: set = set()
 
             nav_history: Dict[pd.Timestamp, float] = {}
@@ -334,6 +335,11 @@ class PortfolioEngine:
                 for bond in self.bonds:
                     if d < bond.purchase_date:
                         continue
+
+                    if bond.id not in purchased_bonds:
+                        purchase_cost = bond_utils.calculate_bond_cost_basis(bond)
+                        current_cash -= purchase_cost
+                        purchased_bonds.add(bond.id)
 
                     coupons = bond_utils.generate_coupon_payments(bond, d, d)
                     for _, coupon_amount in coupons:
