@@ -3,6 +3,22 @@ export type { AllIndicators } from './indicators';
 
 export type PortfolioType = 'transaction' | 'snapshot';
 
+export type PaymentFrequency = 0 | 1 | 2 | 4 | 12;
+
+export interface BondPosition {
+    id: string;
+    name: string;
+    face_value: number;
+    coupon_rate: number;
+    maturity_date: string;
+    payment_frequency: PaymentFrequency;
+    purchase_price: number;
+    purchase_quantity: number;
+    purchase_date: string;
+    current_price?: number;
+    currency?: string;
+}
+
 export interface Portfolio {
     id: string;
     name: string;
@@ -68,5 +84,13 @@ export interface AnalysisCache {
 export interface ExportPortfolioData {
     meta: Portfolio;
     data: Array<Record<string, unknown>>;
+    bonds?: BondPosition[];
+    analysis?: AnalysisCache;
+}
+
+export interface PortfolioData {
+    meta: Portfolio;
+    data: Array<Record<string, unknown>>;
+    bonds?: BondPosition[];
     analysis?: AnalysisCache;
 }

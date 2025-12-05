@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio, AnalysisCache } from '@/types';
+import { Portfolio, AnalysisCache, BondPosition } from '@/types';
 import { AllIndicators } from '@/types/indicators';
 import { calculateDataHash } from '@/utils/hash';
 import { MetricsCard } from '@/components/MetricsCard';
@@ -12,6 +12,7 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 import { LoadingProgress } from '@/components/LoadingProgress';
 import { NavChart } from '@/components/NavChart';
 import { AddTransactionModal } from '@/components/AddTransactionModal';
+import { AddBondModal } from '@/components/AddBondModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
 import { BenchmarkPanel } from '@/components/BenchmarkPanel';
 import { BenchmarkComparisonTable } from '@/components/BenchmarkComparisonTable';
@@ -22,7 +23,7 @@ import AllocationBreakdown from '@/components/AllocationBreakdown';
 import RiskDecomposition from '@/components/RiskDecomposition';
 import EfficientFrontier from '@/components/EfficientFrontier';
 import { Eye, EyeOff, Download, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData, saveAnalysisCache, clearAnalysisCache } from '@/lib/storage';
+import { getPortfolio, deletePortfolio, addTransaction, updateTransaction, deleteTransaction, updatePortfolioData, saveAnalysisCache, clearAnalysisCache, getBonds, addBond, updateBond, deleteBond } from '@/lib/storage';
 import { calculatePortfolioFullStream, getPriceHistory, getBenchmarkHistory, BenchmarkComparison, calculateMarkowitz, EfficientFrontierData } from '@/lib/api';
 import { getTrendDirection } from '@/utils/formatters';
 
@@ -31,14 +32,18 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const t = useTranslations('Portfolio');
     const tIndicators = useTranslations('Indicators');
     const tDeposit = useTranslations('DepositPrompt');
+    const tBondTable = useTranslations('BondTable');
     const currentLocale = useLocale();
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
     const [navHistory, setNavHistory] = useState<any[]>([]);
     const [cashHistory, setCashHistory] = useState<any[]>([]);
     const [indicators, setIndicators] = useState<any>({});
     const [holdings, setHoldings] = useState<any[]>([]);
+    const [bonds, setBonds] = useState<BondPosition[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAddTxnOpen, setIsAddTxnOpen] = useState(false);
+    const [isAddBondOpen, setIsAddBondOpen] = useState(false);
+    const [editingBond, setEditingBond] = useState<BondPosition | null>(null);
     const [isEditSnapshotOpen, setIsEditSnapshotOpen] = useState(false);
 
     const [selectedTickers, setSelectedTickers] = useState<Set<string>>(new Set());
@@ -88,9 +93,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 : portfolioData.data;
             setHoldings(sortedData);
 
-            if (portfolioData.data.length > 0) {
+            const portfolioBonds = portfolioData.bonds || [];
+            setBonds(portfolioBonds);
+
+            if (portfolioData.data.length > 0 || portfolioBonds.length > 0) {
                 if (portfolioData.analysis) {
-                    const currentHash = await calculateDataHash(portfolioData.data);
+                    const currentHash = await calculateDataHash(portfolioData.data, portfolioBonds);
                     if (currentHash === portfolioData.analysis.dataHash) {
                         setNavHistory(portfolioData.analysis.navHistory);
                         setCashHistory(portfolioData.analysis.cashHistory);
@@ -165,7 +173,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         onComplete: async (data) => {
                             setLoadingStep(6);
 
-                            const dataHash = await calculateDataHash(portfolioData.data);
+                            const dataHash = await calculateDataHash(portfolioData.data, portfolioBonds);
                             const analysisCache: AnalysisCache = {
                                 version: '1.0',
                                 calculatedAt: new Date().toISOString(),
@@ -197,7 +205,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             alert(t('loadError') || 'Failed to load portfolio data');
                             setLoading(false);
                         }
-                    }
+                    },
+                    portfolioBonds
                 );
             } else {
                 setNavHistory([]);
@@ -297,6 +306,48 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
+    async function handleAddBond(bond: BondPosition): Promise<void> {
+        try {
+            if (editingBond) {
+                updateBond(id, bond.id, bond);
+                setEditingBond(null);
+            } else {
+                addBond(id, bond);
+            }
+            loadData();
+        } catch (err) {
+            console.error(err);
+            throw new Error('Failed to add bond');
+        }
+    }
+
+    function handleEditBond(bond: BondPosition): void {
+        setEditingBond(bond);
+        setIsAddBondOpen(true);
+    }
+
+    function handleDeleteBond(bondId: string): void {
+        if (confirm(tBondTable('deleteBondConfirm'))) {
+            try {
+                deleteBond(id, bondId);
+                loadData();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    }
+
+    function isBondMatured(bond: BondPosition): boolean {
+        const today = new Date();
+        const maturityDate = new Date(bond.maturity_date);
+        return today >= maturityDate;
+    }
+
+    function calculateBondCurrentValue(bond: BondPosition): number {
+        const cleanPrice = bond.current_price ?? bond.purchase_price;
+        return (cleanPrice / 100) * bond.face_value * bond.purchase_quantity;
+    }
+
     const router = useRouter();
 
     async function handleExport() {
@@ -306,7 +357,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
             let analysis: AnalysisCache | undefined;
             if (allIndicators && navHistory.length > 0) {
-                const dataHash = await calculateDataHash(portfolioData.data);
+                const dataHash = await calculateDataHash(portfolioData.data, portfolioData.bonds);
                 analysis = {
                     version: '1.0',
                     calculatedAt: new Date().toISOString(),
@@ -321,6 +372,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             const exportData = {
                 meta: portfolioData.meta,
                 data: portfolioData.data,
+                bonds: portfolioData.bonds || [],
                 analysis
             };
 
@@ -548,6 +600,12 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                             <Trash2 size={20} />
                         </button>
                         <div className="w-px bg-gray-300 mx-1"></div>
+                        <button
+                            onClick={() => setIsAddBondOpen(true)}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                            {t('addBond')}
+                        </button>
                         {portfolio.type === 'transaction' ? (
                             <button
                                 onClick={() => setIsAddTxnOpen(true)}
@@ -748,6 +806,89 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     )}
                 </div>
 
+                {/* Bond Holdings Section */}
+                {bonds.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <button
+                            onClick={() => toggleSection('bonds')}
+                            className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
+                        >
+                            <h2 className="text-lg font-semibold">{tBondTable('title')}</h2>
+                            <div className="text-gray-400">
+                                {expandedSections.has('bonds') ? (
+                                    <ChevronUp className="w-5 h-5" />
+                                ) : (
+                                    <ChevronDown className="w-5 h-5" />
+                                )}
+                            </div>
+                        </button>
+                        {expandedSections.has('bonds') && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 text-gray-500 font-medium">
+                                        <tr>
+                                            <th className="px-6 py-3">{tBondTable('name')}</th>
+                                            <th className="px-6 py-3 text-right">{tBondTable('faceValue')}</th>
+                                            <th className="px-6 py-3 text-right">{tBondTable('couponRate')}</th>
+                                            <th className="px-6 py-3">{tBondTable('maturityDate')}</th>
+                                            <th className="px-6 py-3 text-right">{tBondTable('quantity')}</th>
+                                            <th className="px-6 py-3 text-right">{tBondTable('currentValue')}</th>
+                                            <th className="px-6 py-3 text-center">{tBondTable('status')}</th>
+                                            <th className="px-6 py-3 text-center">{t('actions')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {bonds.map((bond) => (
+                                            <tr key={bond.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3 font-medium">{bond.name}</td>
+                                                <td className="px-6 py-3 text-right">{bond.face_value.toLocaleString()}</td>
+                                                <td className="px-6 py-3 text-right">{bond.coupon_rate}%</td>
+                                                <td className="px-6 py-3">{bond.maturity_date}</td>
+                                                <td className="px-6 py-3 text-right">{bond.purchase_quantity}</td>
+                                                <td className="px-6 py-3 text-right">
+                                                    {calculateBondCurrentValue(bond).toLocaleString(undefined, {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                    })}
+                                                </td>
+                                                <td className="px-6 py-3 text-center">
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                                        isBondMatured(bond)
+                                                            ? 'bg-gray-100 text-gray-800'
+                                                            : 'bg-green-100 text-green-800'
+                                                    }`}>
+                                                        {isBondMatured(bond) ? tBondTable('matured') : tBondTable('active')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleEditBond(bond)}
+                                                            className="p-1 rounded hover:bg-blue-100 text-blue-600"
+                                                            title={tBondTable('editBond')}
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteBond(bond.id)}
+                                                            className="p-1 rounded hover:bg-red-100 text-red-600"
+                                                            title={tBondTable('deleteBond')}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {loadingBenchmarkComparison ? (
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                         <p className="text-sm text-gray-400">{t('loadingBenchmark')}</p>
@@ -946,6 +1087,16 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 }}
                 onSubmit={handleAddTransaction}
                 initialData={editingTransactionData}
+            />
+
+            <AddBondModal
+                isOpen={isAddBondOpen}
+                onClose={() => {
+                    setIsAddBondOpen(false);
+                    setEditingBond(null);
+                }}
+                onSubmit={handleAddBond}
+                initialData={editingBond || undefined}
             />
 
             <EditSnapshotModal
