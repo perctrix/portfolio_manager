@@ -1,10 +1,11 @@
-import { Portfolio, AnalysisCache } from '@/types';
+import { Portfolio, AnalysisCache, BondPosition } from '@/types';
 
 const PORTFOLIOS_KEY = 'portfolios';
 
 export interface PortfolioData {
     meta: Portfolio;
     data: any[];
+    bonds?: BondPosition[];
     analysis?: AnalysisCache;
 }
 
@@ -92,6 +93,57 @@ export function clearAnalysisCache(id: string): void {
     const portfolios = getAllPortfolios();
     if (portfolios[id]) {
         delete portfolios[id].analysis;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function getBonds(portfolioId: string): BondPosition[] {
+    const portfolio = getPortfolio(portfolioId);
+    return portfolio?.bonds || [];
+}
+
+export function addBond(portfolioId: string, bond: BondPosition): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[portfolioId]) {
+        if (!portfolios[portfolioId].bonds) {
+            portfolios[portfolioId].bonds = [];
+        }
+        portfolios[portfolioId].bonds!.push(bond);
+        delete portfolios[portfolioId].analysis;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function updateBond(portfolioId: string, bondId: string, bond: BondPosition): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[portfolioId] && portfolios[portfolioId].bonds) {
+        const index = portfolios[portfolioId].bonds!.findIndex(b => b.id === bondId);
+        if (index !== -1) {
+            portfolios[portfolioId].bonds![index] = bond;
+            delete portfolios[portfolioId].analysis;
+            localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+        }
+    }
+}
+
+export function deleteBond(portfolioId: string, bondId: string): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[portfolioId] && portfolios[portfolioId].bonds) {
+        portfolios[portfolioId].bonds = portfolios[portfolioId].bonds!.filter(b => b.id !== bondId);
+        delete portfolios[portfolioId].analysis;
+        localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
+    }
+}
+
+export function updateBonds(portfolioId: string, bonds: BondPosition[]): void {
+    if (typeof window === 'undefined') return;
+    const portfolios = getAllPortfolios();
+    if (portfolios[portfolioId]) {
+        portfolios[portfolioId].bonds = bonds;
+        delete portfolios[portfolioId].analysis;
         localStorage.setItem(PORTFOLIOS_KEY, JSON.stringify(portfolios));
     }
 }

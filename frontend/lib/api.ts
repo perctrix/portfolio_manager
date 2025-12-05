@@ -1,4 +1,4 @@
-import { Portfolio, BenchmarkComparison, BenchmarkMetrics } from '@/types';
+import { Portfolio, BenchmarkComparison, BenchmarkMetrics, BondPosition } from '@/types';
 import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -12,13 +12,17 @@ async function safeJsonParse(response: Response): Promise<any> {
     }
 }
 
-export async function calculateNav(portfolio: Portfolio, data: any[]): Promise<{nav: Array<{date: string, value: number}>, cash: Array<{date: string, value: number}>, failed_tickers: string[], suggested_initial_deposit?: number}> {
+export async function calculateNav(
+    portfolio: Portfolio,
+    data: any[],
+    bonds: BondPosition[] = []
+): Promise<{nav: Array<{date: string, value: number}>, cash: Array<{date: string, value: number}>, failed_tickers: string[], suggested_initial_deposit?: number}> {
     const response = await fetch(`${API_BASE_URL}/calculate/nav`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
@@ -27,13 +31,17 @@ export async function calculateNav(portfolio: Portfolio, data: any[]): Promise<{
     return safeJsonParse(response);
 }
 
-export async function calculateIndicators(portfolio: Portfolio, data: any[]): Promise<any> {
+export async function calculateIndicators(
+    portfolio: Portfolio,
+    data: any[],
+    bonds: BondPosition[] = []
+): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/calculate/indicators`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
@@ -60,13 +68,17 @@ export async function updatePrice(symbol: string): Promise<void> {
     }
 }
 
-export async function calculateAllIndicators(portfolio: Portfolio, data: any[]): Promise<AllIndicators> {
+export async function calculateAllIndicators(
+    portfolio: Portfolio,
+    data: any[],
+    bonds: BondPosition[] = []
+): Promise<AllIndicators> {
     const response = await fetch(`${API_BASE_URL}/calculate/indicators/all`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
@@ -75,13 +87,17 @@ export async function calculateAllIndicators(portfolio: Portfolio, data: any[]):
     return safeJsonParse(response);
 }
 
-export async function calculateBasicIndicators(portfolio: Portfolio, data: any[]): Promise<BasicIndicators> {
+export async function calculateBasicIndicators(
+    portfolio: Portfolio,
+    data: any[],
+    bonds: BondPosition[] = []
+): Promise<BasicIndicators> {
     const response = await fetch(`${API_BASE_URL}/calculate/indicators/basic`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
@@ -117,13 +133,17 @@ export async function getBenchmarkHistory(symbol: string): Promise<Array<{date: 
 
 export type { BenchmarkComparison, BenchmarkMetrics };
 
-export async function calculateBenchmarkComparison(portfolio: Portfolio, data: any[]): Promise<BenchmarkComparison> {
+export async function calculateBenchmarkComparison(
+    portfolio: Portfolio,
+    data: any[],
+    bonds: BondPosition[] = []
+): Promise<BenchmarkComparison> {
     const response = await fetch(`${API_BASE_URL}/calculate/benchmark-comparison`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
     if (!response.ok) {
         const error = await safeJsonParse(response);
@@ -146,12 +166,13 @@ export interface PortfolioStreamCallbacks {
 export async function calculatePortfolioFullStream(
     portfolio: Portfolio,
     data: any[],
-    callbacks: PortfolioStreamCallbacks
+    callbacks: PortfolioStreamCallbacks,
+    bonds: BondPosition[] = []
 ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portfolio, data }),
+        body: JSON.stringify({ portfolio, data, bonds }),
     });
 
     if (!response.ok) {
@@ -255,7 +276,8 @@ export interface MarkowitzParams {
 export async function calculateMarkowitz(
     portfolio: Portfolio,
     data: any[],
-    params: MarkowitzParams = {}
+    params: MarkowitzParams = {},
+    bonds: BondPosition[] = []
 ): Promise<EfficientFrontierData> {
     const response = await fetch(`${API_BASE_URL}/calculate/markowitz`, {
         method: 'POST',
@@ -265,6 +287,7 @@ export async function calculateMarkowitz(
         body: JSON.stringify({
             portfolio,
             data,
+            bonds,
             params: {
                 allow_short_selling: params.allow_short_selling ?? false,
                 risk_free_rate: params.risk_free_rate ?? 0.0,
