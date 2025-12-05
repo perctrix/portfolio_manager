@@ -61,7 +61,8 @@ def get_coupon_dates(
     while current > start_date:
         current = current - relativedelta(months=months_per_period)
 
-    current = current + relativedelta(months=months_per_period)
+    if current < start_date:
+        current = current + relativedelta(months=months_per_period)
 
     while current <= end_date:
         if current >= start_date and current <= maturity_date:
