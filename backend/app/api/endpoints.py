@@ -15,6 +15,7 @@ from app.models.portfolio import (
     Portfolio, BondPosition, StaleTicker, StaleTickerHandling
 )
 from app.core import prices, engine, ticker_validator
+from app.core.symbol_resolver import get_resolver, UnresolvedSymbol
 from app.core.indicators.aggregator import calculate_markowitz_analysis
 
 router = APIRouter()
@@ -359,11 +360,17 @@ async def load_benchmarks_batch(
     return formatted, raw_cache
 
 
+class SymbolResolution(BaseModel):
+    original: str
+    resolved: str
+
+
 class PortfolioFullRequest(BaseModel):
     portfolio: Portfolio
     data: List[dict]
     bonds: List[BondPosition] = []
     stale_ticker_handling: List[StaleTickerHandling] = []
+    symbol_resolutions: List[SymbolResolution] = []
 
 
 @router.post("/calculate/portfolio-full")
@@ -372,20 +379,25 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
     SSE streaming endpoint with parallel I/O and caching.
 
     Event flow:
-    1. prices_loaded - price data (parallel loaded)
-    2. stale_tickers_detected - (optional) stale tickers found
-    3. nav_calculated - NAV history
-    4. indicators_basic_calculated - basic indicators
-    5. benchmark_comparison_calculated - benchmark comparison
-    6. indicators_all_calculated - all indicators
-    7. complete - completion marker with liquidation_events
+    1. symbols_unresolved - (optional) symbols need resolution
+    2. awaiting_symbol_resolution - pause for user input
+    3. prices_loaded - price data (parallel loaded)
+    4. stale_tickers_detected - (optional) stale tickers found
+    5. nav_calculated - NAV history
+    6. indicators_basic_calculated - basic indicators
+    7. benchmark_comparison_calculated - benchmark comparison
+    8. indicators_all_calculated - all indicators
+    9. complete - completion marker with liquidation_events
     """
     portfolio = request.portfolio
     data = request.data
     bonds = request.bonds
     stale_ticker_handling = request.stale_ticker_handling
+    symbol_resolutions = request.symbol_resolutions
 
     async def event_generator():
+        nonlocal data
+
         try:
             from app.core.benchmarks import get_benchmark_loader
             from app.core.indicators.aggregator import calculate_benchmark_comparison
@@ -395,6 +407,77 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
                 row['symbol'] for row in data
                 if row.get('symbol') and row['symbol'] != 'CASH'
             ]))
+
+            # ============================================
+            # PHASE 0: Symbol Resolution
+            # Resolve foreign stock symbols using currency hints
+            # ============================================
+            if symbol_resolutions:
+                # Apply user-provided resolutions
+                resolution_map = {r.original.upper(): r.resolved.upper() for r in symbol_resolutions}
+                resolved_symbols = []
+                for sym in symbols:
+                    resolved = resolution_map.get(sym, sym)
+                    resolved_symbols.append(resolved)
+                symbols = resolved_symbols
+
+                # Update data with resolved symbols
+                for row in data:
+                    original_sym = row.get('symbol', '').upper()
+                    if original_sym in resolution_map:
+                        row['symbol'] = resolution_map[original_sym]
+            else:
+                # Try automatic symbol resolution
+                resolver = get_resolver()
+                symbol_currencies: Dict[str, str] = {}
+                for row in data:
+                    sym = row.get('symbol', '').upper()
+                    if sym and sym != 'CASH':
+                        currency = row.get('currency', portfolio.base_currency)
+                        if currency:
+                            symbol_currencies[sym] = currency.upper()
+
+                resolved_map: Dict[str, str] = {}
+                unresolved_list: List[UnresolvedSymbol] = []
+
+                for sym in symbols:
+                    currency = symbol_currencies.get(sym, portfolio.base_currency)
+                    result, unresolved = resolver.resolve(sym, currency)
+                    if result:
+                        resolved_map[sym] = result.resolved
+                    elif unresolved:
+                        unresolved_list.append(unresolved)
+
+                # If there are unresolved symbols, send event and pause
+                if unresolved_list:
+                    unresolved_data = [
+                        {
+                            'original': u.original,
+                            'currency': u.currency,
+                            'attempted': u.attempted,
+                            'suggestions': u.suggestions
+                        }
+                        for u in unresolved_list
+                    ]
+                    yield f"event: symbols_unresolved\n"
+                    yield f"data: {json.dumps({'unresolved_symbols': unresolved_data})}\n\n"
+                    yield f"event: awaiting_symbol_resolution\n"
+                    yield f"data: {json.dumps({'message': 'Waiting for symbol resolution'})}\n\n"
+                    return
+
+                # Apply resolved symbols
+                if resolved_map:
+                    resolved_symbols = []
+                    for sym in symbols:
+                        resolved = resolved_map.get(sym, sym)
+                        resolved_symbols.append(resolved)
+                    symbols = resolved_symbols
+
+                    # Update data with resolved symbols
+                    for row in data:
+                        original_sym = row.get('symbol', '').upper()
+                        if original_sym in resolved_map:
+                            row['symbol'] = resolved_map[original_sym]
 
             benchmark_loader = get_benchmark_loader()
 
