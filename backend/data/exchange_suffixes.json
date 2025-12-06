@@ -1,0 +1,157 @@
+{
+  "comment": "Currency to Yahoo Finance exchange suffix mappings",
+  "mappings": {
+    "EUR": {
+      "primary": ".DE",
+      "alternatives": [".PA", ".MI", ".AS", ".BR", ".MC", ".VI"],
+      "exchanges": {
+        ".DE": "XETRA (Germany)",
+        ".PA": "Euronext Paris",
+        ".MI": "Borsa Italiana",
+        ".AS": "Euronext Amsterdam",
+        ".BR": "Euronext Brussels",
+        ".MC": "BME (Spain)",
+        ".VI": "Vienna Stock Exchange"
+      }
+    },
+    "CAD": {
+      "primary": ".TO",
+      "alternatives": [".V", ".CN", ".NE"],
+      "exchanges": {
+        ".TO": "Toronto Stock Exchange",
+        ".V": "TSX Venture Exchange",
+        ".CN": "Canadian Securities Exchange",
+        ".NE": "NEO Exchange"
+      }
+    },
+    "GBP": {
+      "primary": ".L",
+      "alternatives": [".IL"],
+      "exchanges": {
+        ".L": "London Stock Exchange",
+        ".IL": "LSE International"
+      }
+    },
+    "JPY": {
+      "primary": ".T",
+      "alternatives": [".OS", ".NG", ".F"],
+      "exchanges": {
+        ".T": "Tokyo Stock Exchange",
+        ".OS": "Osaka Exchange",
+        ".NG": "Nagoya Stock Exchange",
+        ".F": "Fukuoka Stock Exchange"
+      }
+    },
+    "HKD": {
+      "primary": ".HK",
+      "alternatives": [],
+      "exchanges": {
+        ".HK": "Hong Kong Stock Exchange"
+      }
+    },
+    "CNY": {
+      "primary": ".SS",
+      "alternatives": [".SZ"],
+      "exchanges": {
+        ".SS": "Shanghai Stock Exchange",
+        ".SZ": "Shenzhen Stock Exchange"
+      }
+    },
+    "AUD": {
+      "primary": ".AX",
+      "alternatives": [],
+      "exchanges": {
+        ".AX": "Australian Securities Exchange"
+      }
+    },
+    "CHF": {
+      "primary": ".SW",
+      "alternatives": [".VX"],
+      "exchanges": {
+        ".SW": "SIX Swiss Exchange",
+        ".VX": "SIX Swiss Exchange (Virt-x)"
+      }
+    },
+    "TWD": {
+      "primary": ".TW",
+      "alternatives": [".TWO"],
+      "exchanges": {
+        ".TW": "Taiwan Stock Exchange",
+        ".TWO": "Taipei Exchange"
+      }
+    },
+    "KRW": {
+      "primary": ".KS",
+      "alternatives": [".KQ"],
+      "exchanges": {
+        ".KS": "Korea Stock Exchange",
+        ".KQ": "KOSDAQ"
+      }
+    },
+    "SGD": {
+      "primary": ".SI",
+      "alternatives": [],
+      "exchanges": {
+        ".SI": "Singapore Exchange"
+      }
+    },
+    "SEK": {
+      "primary": ".ST",
+      "alternatives": [],
+      "exchanges": {
+        ".ST": "Nasdaq Stockholm"
+      }
+    },
+    "NOK": {
+      "primary": ".OL",
+      "alternatives": [],
+      "exchanges": {
+        ".OL": "Oslo Stock Exchange"
+      }
+    },
+    "DKK": {
+      "primary": ".CO",
+      "alternatives": [],
+      "exchanges": {
+        ".CO": "Nasdaq Copenhagen"
+      }
+    },
+    "INR": {
+      "primary": ".NS",
+      "alternatives": [".BO"],
+      "exchanges": {
+        ".NS": "National Stock Exchange of India",
+        ".BO": "Bombay Stock Exchange"
+      }
+    },
+    "NZD": {
+      "primary": ".NZ",
+      "alternatives": [],
+      "exchanges": {
+        ".NZ": "New Zealand Stock Exchange"
+      }
+    },
+    "MXN": {
+      "primary": ".MX",
+      "alternatives": [],
+      "exchanges": {
+        ".MX": "Mexican Stock Exchange"
+      }
+    },
+    "BRL": {
+      "primary": ".SA",
+      "alternatives": [],
+      "exchanges": {
+        ".SA": "Sao Paulo Stock Exchange"
+      }
+    },
+    "ZAR": {
+      "primary": ".JO",
+      "alternatives": [],
+      "exchanges": {
+        ".JO": "Johannesburg Stock Exchange"
+      }
+    }
+  },
+  "no_suffix": ["USD"]
+}
