@@ -72,6 +72,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [unresolvedSymbols, setUnresolvedSymbols] = useState<UnresolvedSymbol[]>([]);
     const [isSymbolResolutionModalOpen, setIsSymbolResolutionModalOpen] = useState(false);
     const [symbolResolutions, setSymbolResolutions] = useState<SymbolResolution[]>([]);
+    const [skippedSymbols, setSkippedSymbols] = useState<string[]>([]);
 
     // Stale ticker handling
     const [staleTickers, setStaleTickers] = useState<StaleTicker[]>([]);
@@ -303,102 +304,112 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
-    async function handleSymbolResolutionConfirm(resolutions: SymbolResolution[], skippedSymbols: string[]) {
+    async function handleSymbolResolutionConfirm(resolutions: SymbolResolution[], skipped: string[]) {
+        console.log('[DEBUG] handleSymbolResolutionConfirm called');
+        console.log('[DEBUG] resolutions:', resolutions);
+        console.log('[DEBUG] skipped:', skipped);
+
         setIsSymbolResolutionModalOpen(false);
         setSymbolResolutions(resolutions);
+        setSkippedSymbols(skipped);
         setUnresolvedSymbols([]);
         setLoading(true);
         setLoadingStep(0);
 
         // Restart calculation with symbol resolutions
-        if (pendingPortfolioData) {
-            const portfolioBonds = pendingPortfolioData.bonds || [];
-            const cacheData: {
-                navHistory: Array<{date: string, value: number}>;
-                cashHistory: Array<{date: string, value: number}>;
-                allIndicators: AllIndicators | null;
-                benchmarkComparison: BenchmarkComparison | null;
-            } = {
-                navHistory: [],
-                cashHistory: [],
-                allIndicators: null,
-                benchmarkComparison: null
-            };
+        if (!pendingPortfolioData) {
+            console.log('[DEBUG] ERROR: pendingPortfolioData is null!');
+            setLoading(false);
+            return;
+        }
 
-            try {
-                await calculatePortfolioFullStream(
-                    pendingPortfolioData.meta,
-                    pendingPortfolioData.data,
-                    {
-                        onPricesLoaded: () => setLoadingStep(1),
-                        onStaleTickersDetected: (data) => {
-                            setStaleTickers(data.stale_tickers);
-                            setIsStaleTickerModalOpen(true);
-                        },
-                        onAwaitingStaleTickerHandling: () => {
-                            setLoading(false);
-                        },
-                        onNavCalculated: (data) => {
-                            cacheData.navHistory = data.nav;
-                            cacheData.cashHistory = data.cash || [];
-                            setNavHistory(data.nav);
-                            setCashHistory(data.cash || []);
-                            setLoadingStep(2);
-                        },
-                        onIndicatorsBasicCalculated: (data) => {
-                            setIndicators(data);
-                            setLoadingStep(3);
-                        },
-                        onIndicatorsAllCalculated: (data) => {
-                            cacheData.allIndicators = data;
-                            setAllIndicators(data);
-                            setLoadingStep(4);
-                        },
-                        onBenchmarkComparisonCalculated: (data) => {
-                            cacheData.benchmarkComparison = data.benchmarks;
-                            setBenchmarkComparison(data.benchmarks);
-                            setLoadingBenchmarkComparison(false);
-                            setLoadingStep(5);
-                        },
-                        onComplete: async (data) => {
-                            setLoadingStep(6);
-                            if (data.liquidation_events && data.liquidation_events.length > 0) {
-                                setLiquidationEvents(data.liquidation_events);
-                            }
-                            const dataHash = await calculateDataHash(pendingPortfolioData.data, portfolioBonds);
-                            const analysisCache: AnalysisCache = {
-                                version: '1.0',
-                                calculatedAt: new Date().toISOString(),
-                                dataHash,
-                                navHistory: cacheData.navHistory,
-                                cashHistory: cacheData.cashHistory,
-                                allIndicators: cacheData.allIndicators,
-                                benchmarkComparison: cacheData.benchmarkComparison
-                            };
-                            saveAnalysisCache(id, analysisCache);
-                            if (data.failed_tickers && data.failed_tickers.length > 0) {
-                                alert(`${t('tickerWarning')}\n${data.failed_tickers.join(', ')}\n\n${t('tickerWarningHint')}`);
-                            }
-                            setLoading(false);
-                            setPendingPortfolioData(null);
-                        },
-                        onError: (error) => {
-                            console.error('Stream error:', error);
-                            alert(t('loadError') || 'Failed to load portfolio data');
-                            setLoading(false);
-                            setPendingPortfolioData(null);
-                        }
+        console.log('[DEBUG] pendingPortfolioData exists, starting stream');
+        const portfolioBonds = pendingPortfolioData.bonds || [];
+        const cacheData: {
+            navHistory: Array<{date: string, value: number}>;
+            cashHistory: Array<{date: string, value: number}>;
+            allIndicators: AllIndicators | null;
+            benchmarkComparison: BenchmarkComparison | null;
+        } = {
+            navHistory: [],
+            cashHistory: [],
+            allIndicators: null,
+            benchmarkComparison: null
+        };
+
+        try {
+            await calculatePortfolioFullStream(
+                pendingPortfolioData.meta,
+                pendingPortfolioData.data,
+                {
+                    onPricesLoaded: () => setLoadingStep(1),
+                    onStaleTickersDetected: (data) => {
+                        setStaleTickers(data.stale_tickers);
+                        setIsStaleTickerModalOpen(true);
                     },
-                    portfolioBonds,
-                    staleTickerHandling,
-                    resolutions,
-                    skippedSymbols
-                );
-            } catch (error) {
-                console.error(error);
-                setLoading(false);
-                setPendingPortfolioData(null);
-            }
+                    onAwaitingStaleTickerHandling: () => {
+                        setLoading(false);
+                    },
+                    onNavCalculated: (data) => {
+                        cacheData.navHistory = data.nav;
+                        cacheData.cashHistory = data.cash || [];
+                        setNavHistory(data.nav);
+                        setCashHistory(data.cash || []);
+                        setLoadingStep(2);
+                    },
+                    onIndicatorsBasicCalculated: (data) => {
+                        setIndicators(data);
+                        setLoadingStep(3);
+                    },
+                    onIndicatorsAllCalculated: (data) => {
+                        cacheData.allIndicators = data;
+                        setAllIndicators(data);
+                        setLoadingStep(4);
+                    },
+                    onBenchmarkComparisonCalculated: (data) => {
+                        cacheData.benchmarkComparison = data.benchmarks;
+                        setBenchmarkComparison(data.benchmarks);
+                        setLoadingBenchmarkComparison(false);
+                        setLoadingStep(5);
+                    },
+                    onComplete: async (data) => {
+                        setLoadingStep(6);
+                        if (data.liquidation_events && data.liquidation_events.length > 0) {
+                            setLiquidationEvents(data.liquidation_events);
+                        }
+                        const dataHash = await calculateDataHash(pendingPortfolioData.data, portfolioBonds);
+                        const analysisCache: AnalysisCache = {
+                            version: '1.0',
+                            calculatedAt: new Date().toISOString(),
+                            dataHash,
+                            navHistory: cacheData.navHistory,
+                            cashHistory: cacheData.cashHistory,
+                            allIndicators: cacheData.allIndicators,
+                            benchmarkComparison: cacheData.benchmarkComparison
+                        };
+                        saveAnalysisCache(id, analysisCache);
+                        if (data.failed_tickers && data.failed_tickers.length > 0) {
+                            alert(`${t('tickerWarning')}\n${data.failed_tickers.join(', ')}\n\n${t('tickerWarningHint')}`);
+                        }
+                        setLoading(false);
+                        setPendingPortfolioData(null);
+                    },
+                    onError: (error) => {
+                        console.error('Stream error:', error);
+                        alert(t('loadError') || 'Failed to load portfolio data');
+                        setLoading(false);
+                        setPendingPortfolioData(null);
+                    }
+                },
+                portfolioBonds,
+                staleTickerHandling,
+                resolutions,
+                skipped
+            );
+        } catch (error) {
+            console.error(error);
+            setLoading(false);
+            setPendingPortfolioData(null);
         }
     }
 
@@ -490,7 +501,9 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         }
                     },
                     portfolioBonds,
-                    handling
+                    handling,
+                    symbolResolutions,
+                    skippedSymbols
                 );
             } catch (error) {
                 console.error(error);

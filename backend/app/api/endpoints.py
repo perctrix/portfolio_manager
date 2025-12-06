@@ -419,6 +419,11 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             # ============================================
             # If user has already dealt with resolution (provided resolutions or skipped symbols),
             # don't try automatic resolution again
+            # Debug: Log data sample to see if currency field is present
+            sample_data = data[:3] if len(data) >= 3 else data
+            logger.info(f"Symbol resolution phase: resolutions={len(symbol_resolutions)}, skipped={skipped_symbols}")
+            logger.info(f"Symbols to resolve: {symbols}")
+            logger.info(f"Sample data rows: {sample_data}")
             if symbol_resolutions or skipped_symbols:
                 # Apply user-provided resolutions
                 resolution_map = {r.original.upper(): r.resolved.upper() for r in symbol_resolutions}

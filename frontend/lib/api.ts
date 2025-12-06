@@ -176,6 +176,11 @@ export async function calculatePortfolioFullStream(
     symbolResolutions: SymbolResolution[] = [],
     skippedSymbols: string[] = []
 ): Promise<void> {
+    console.log('[API DEBUG] calculatePortfolioFullStream called');
+    console.log('[API DEBUG] symbolResolutions:', symbolResolutions);
+    console.log('[API DEBUG] skippedSymbols:', skippedSymbols);
+    console.log('[API DEBUG] data sample (first 3 rows):', data.slice(0, 3));
+
     const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,6 +193,8 @@ export async function calculatePortfolioFullStream(
             skipped_symbols: skippedSymbols
         }),
     });
+
+    console.log('[API DEBUG] response status:', response.status);
 
     if (!response.ok) {
         throw new Error('Failed to start stream');
@@ -230,6 +237,7 @@ export async function calculatePortfolioFullStream(
                     continue;
                 }
 
+                console.log('[API DEBUG] Received event:', event);
                 switch (event) {
                     case 'symbols_unresolved':
                         callbacks.onSymbolsUnresolved?.(data);
