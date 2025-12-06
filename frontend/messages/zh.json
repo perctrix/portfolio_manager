@@ -401,5 +401,34 @@
     "cancel": "取消",
     "hashMismatchWarning": "警告：投资组合数据自分析计算以来已被修改。缓存结果将被丢弃，指标将重新计算。",
     "cacheInfo": "使用缓存结果将立即加载。重新计算将获取最新价格，可能需要几秒钟。"
+  },
+  "StaleTickerModal": {
+    "title": "检测到不完整的价格数据",
+    "description": "您投资组合中的部分股票价格数据早于最新日期。请选择如何处理。",
+    "applyToAll": "应用到全部",
+    "column": {
+      "symbol": "代码",
+      "lastDate": "最后日期",
+      "lastPrice": "最后价格",
+      "quantity": "数量",
+      "marketValue": "市值",
+      "action": "操作"
+    },
+    "action": {
+      "liquidate": "转换为现金",
+      "freeze": "保持最后价格",
+      "remove": "移除"
+    },
+    "actionDesc": {
+      "liquidate": "在最后有效日期按最后价格将持仓转换为现金",
+      "freeze": "后续日期继续使用最后已知价格",
+      "remove": "从投资组合计算中排除此持仓"
+    },
+    "cancel": "取消",
+    "confirm": "应用并继续"
+  },
+  "NavChart": {
+    "liquidationTooltip": "{symbol} 已转换为现金",
+    "liquidationAmount": "金额：{amount}"
   }
 }

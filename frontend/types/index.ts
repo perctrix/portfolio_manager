@@ -94,3 +94,27 @@ export interface PortfolioData {
     bonds?: BondPosition[];
     analysis?: AnalysisCache;
 }
+
+// Stale ticker types
+export type StaleTickerAction = 'liquidate' | 'freeze' | 'remove';
+
+export interface StaleTicker {
+    symbol: string;
+    last_date: string;
+    last_price: number;
+    quantity: number;
+    market_value: number;
+}
+
+export interface StaleTickerHandling {
+    symbol: string;
+    action: StaleTickerAction;
+}
+
+export interface LiquidationEvent {
+    date: string;
+    symbol: string;
+    price: number;
+    quantity: number;
+    cash_amount: number;
+}

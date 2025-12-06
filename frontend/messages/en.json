@@ -401,5 +401,34 @@
     "cancel": "Cancel",
     "hashMismatchWarning": "Warning: The portfolio data has been modified since the analysis was calculated. The cached results will be discarded and indicators will be recalculated.",
     "cacheInfo": "Using cached results will load instantly. Recalculating will fetch latest prices and may take a few seconds."
+  },
+  "StaleTickerModal": {
+    "title": "Incomplete Price Data Detected",
+    "description": "Some stocks in your portfolio have price data that ends before the most recent date. Please choose how to handle each one.",
+    "applyToAll": "Apply to all",
+    "column": {
+      "symbol": "Symbol",
+      "lastDate": "Last Date",
+      "lastPrice": "Last Price",
+      "quantity": "Quantity",
+      "marketValue": "Market Value",
+      "action": "Action"
+    },
+    "action": {
+      "liquidate": "Convert to Cash",
+      "freeze": "Keep Last Price",
+      "remove": "Remove"
+    },
+    "actionDesc": {
+      "liquidate": "Convert position to cash at the last available price on that date",
+      "freeze": "Keep using the last known price for all subsequent dates",
+      "remove": "Exclude this position from portfolio calculations"
+    },
+    "cancel": "Cancel",
+    "confirm": "Apply & Continue"
+  },
+  "NavChart": {
+    "liquidationTooltip": "{symbol} converted to cash",
+    "liquidationAmount": "Amount: {amount}"
   }
 }
