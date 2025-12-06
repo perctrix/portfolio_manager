@@ -2,7 +2,10 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from app.models.portfolio import Portfolio, PortfolioType, BondPosition
+from app.models.portfolio import (
+    Portfolio, PortfolioType, BondPosition,
+    StaleTicker, StaleTickerAction, StaleTickerHandling, LiquidationEvent
+)
 from app.core import prices
 from app.core import indicators
 from app.core import bonds as bond_utils
@@ -21,6 +24,11 @@ class PortfolioEngine:
         self.cash_history: pd.Series = pd.Series()
         self.bond_coupon_history: pd.Series = pd.Series()
         self.bond_maturity_cash: pd.Series = pd.Series()
+
+        # Stale ticker handling
+        self.stale_tickers: List[StaleTicker] = []
+        self.stale_ticker_handling: Dict[str, StaleTickerAction] = {}
+        self.liquidation_events: List[LiquidationEvent] = []
 
         # Request-scoped caches
         self._price_cache: Dict[str, pd.DataFrame] = {}
@@ -150,34 +158,97 @@ class PortfolioEngine:
                 return pd.Series()
 
             price_data: Dict[str, pd.Series] = {}
+            quantities: Dict[str, float] = {}
+
+            # Filter out REMOVE tickers
+            removed_symbols = {
+                sym for sym, action in self.stale_ticker_handling.items()
+                if action == StaleTickerAction.REMOVE
+            }
 
             if has_positions:
                 symbols = positions['symbol'].unique()
                 for sym in symbols:
+                    if sym in removed_symbols:
+                        continue
                     df = self._get_price_history(sym)
                     if not df.empty:
                         price_data[sym] = df['Close']
                     else:
                         self.failed_tickers.append(sym)
 
+                for _, row in positions.iterrows():
+                    sym = row['symbol']
+                    if sym not in removed_symbols:
+                        quantities[sym] = float(row['quantity'])
+
             if not price_data and not has_bonds:
                 return pd.Series()
 
             if price_data:
-                price_df = pd.DataFrame(price_data).dropna()
+                price_df = pd.DataFrame(price_data)
+                # Forward fill then backward fill to handle different date ranges
+                price_df = price_df.ffill().bfill()
+                # Drop rows where all values are NaN
+                price_df = price_df.dropna(how='all')
             else:
                 price_df = pd.DataFrame()
 
             if price_df.empty and not has_bonds:
                 return pd.Series()
 
+            # Apply stale ticker handling
+            liquidated_cash: Dict[pd.Timestamp, float] = {}
+            if not price_df.empty and self.stale_ticker_handling:
+                for sym, action in self.stale_ticker_handling.items():
+                    if sym not in price_df.columns or sym in removed_symbols:
+                        continue
+
+                    qty = quantities.get(sym, 0.0)
+                    if qty == 0:
+                        continue
+
+                    # Find last valid date for this symbol
+                    sym_data = price_df[sym]
+                    original_df = self._get_price_history(sym)
+                    if original_df.empty:
+                        continue
+                    last_valid_date = original_df.index[-1]
+                    last_price = float(original_df['Close'].iloc[-1])
+
+                    if action == StaleTickerAction.LIQUIDATE:
+                        # Record liquidation event
+                        cash_amount = last_price * qty
+                        self.liquidation_events.append(LiquidationEvent(
+                            date=last_valid_date.strftime('%Y-%m-%d'),
+                            symbol=sym,
+                            price=last_price,
+                            quantity=qty,
+                            cash_amount=cash_amount
+                        ))
+                        # Set value to 0 after liquidation date (cash tracked separately)
+                        mask = price_df.index > last_valid_date
+                        price_df.loc[mask, sym] = 0.0
+                        # Track cash from liquidation
+                        for dt in price_df.index[mask]:
+                            liquidated_cash[dt] = liquidated_cash.get(dt, 0.0) + cash_amount
+                        # Clear quantity for this symbol
+                        quantities[sym] = 0.0
+
+                    elif action == StaleTickerAction.FREEZE:
+                        # Keep last price for all dates after last valid date
+                        mask = price_df.index > last_valid_date
+                        price_df.loc[mask, sym] = last_price
+
             if not price_df.empty:
                 nav = pd.Series(0.0, index=price_df.index)
-                for _, row in positions.iterrows():
-                    sym = row['symbol']
-                    qty = row['quantity']
-                    if sym in price_df.columns:
+                for sym, qty in quantities.items():
+                    if sym in price_df.columns and qty > 0:
                         nav += price_df[sym] * qty
+                # Add liquidated cash
+                for dt, cash in liquidated_cash.items():
+                    if dt in nav.index:
+                        nav.at[dt] += cash
             else:
                 nav = pd.Series()
 
@@ -193,6 +264,12 @@ class PortfolioEngine:
 
             if not has_txns and not has_bonds:
                 return pd.Series()
+
+            # Filter out REMOVE tickers
+            removed_symbols = {
+                sym for sym, action in self.stale_ticker_handling.items()
+                if action == StaleTickerAction.REMOVE
+            }
 
             initial_cash = 0.0
             initial_deposit_indices: set = set()
@@ -225,7 +302,7 @@ class PortfolioEngine:
                     self.suggested_initial_deposit = suggested_amount
                     initial_cash = suggested_amount
 
-                symbols = txns['symbol'].unique()
+                symbols = [s for s in txns['symbol'].unique() if s not in removed_symbols]
                 start_date = txns['datetime'].min().date()
             else:
                 symbols = []
@@ -237,12 +314,19 @@ class PortfolioEngine:
             end_date = datetime.now().date()
 
             price_data: Dict[str, pd.Series] = {}
+            stale_last_dates: Dict[str, pd.Timestamp] = {}
+            stale_last_prices: Dict[str, float] = {}
+
             for sym in symbols:
                 if sym == 'CASH':
                     continue
                 df = self._get_price_history(sym)
                 if not df.empty:
                     price_data[sym] = df['Close']
+                    # Track last date for stale ticker handling
+                    if sym in self.stale_ticker_handling:
+                        stale_last_dates[sym] = df.index[-1]
+                        stale_last_prices[sym] = float(df['Close'].iloc[-1])
                 else:
                     self.failed_tickers.append(sym)
 
@@ -296,6 +380,7 @@ class PortfolioEngine:
             cumulative_maturity_cash = 0.0
             purchased_bonds: set = set()
             matured_bonds: set = set()
+            liquidated_symbols: set = set()
 
             nav_history: Dict[pd.Timestamp, float] = {}
             cash_history: Dict[pd.Timestamp, float] = {}
@@ -315,6 +400,8 @@ class PortfolioEngine:
                     day_txns = txns_by_date.get_group(d)
                     for idx, txn in day_txns.iterrows():
                         sym = txn['symbol']
+                        if sym in removed_symbols:
+                            continue
                         qty = float(txn['quantity'])
                         price = float(txn['price'])
                         fee = float(txn['fee']) if not pd.isna(txn['fee']) else 0.0
@@ -331,6 +418,28 @@ class PortfolioEngine:
                                 current_cash += qty
                         elif side == 'WITHDRAW':
                             current_cash -= qty
+
+                # Handle stale ticker liquidation
+                for sym, action in self.stale_ticker_handling.items():
+                    if sym in liquidated_symbols or sym in removed_symbols:
+                        continue
+                    if action == StaleTickerAction.LIQUIDATE:
+                        last_date = stale_last_dates.get(sym)
+                        if last_date and dt > last_date:
+                            qty = current_holdings.get(sym, 0.0)
+                            if qty > 0:
+                                last_price = stale_last_prices.get(sym, 0.0)
+                                cash_amount = last_price * qty
+                                current_cash += cash_amount
+                                self.liquidation_events.append(LiquidationEvent(
+                                    date=last_date.strftime('%Y-%m-%d'),
+                                    symbol=sym,
+                                    price=last_price,
+                                    quantity=qty,
+                                    cash_amount=cash_amount
+                                ))
+                                current_holdings[sym] = 0.0
+                                liquidated_symbols.add(sym)
 
                 for bond in self.bonds:
                     if d < bond.purchase_date:
@@ -355,6 +464,13 @@ class PortfolioEngine:
                 daily_value = current_cash
                 for sym, qty in current_holdings.items():
                     if qty != 0 and sym in price_df.columns:
+                        # For FREEZE action, use last known price after stale date
+                        action = self.stale_ticker_handling.get(sym)
+                        if action == StaleTickerAction.FREEZE:
+                            last_date = stale_last_dates.get(sym)
+                            if last_date and dt > last_date:
+                                daily_value += qty * stale_last_prices.get(sym, 0.0)
+                                continue
                         if not pd.isna(price_df.at[dt, sym]):
                             daily_value += qty * price_df.at[dt, sym]
 
@@ -545,3 +661,97 @@ class PortfolioEngine:
             price_history=data['price_history'],
             weights=data['weights']
         )
+
+    def detect_stale_tickers(self) -> List[StaleTicker]:
+        """Detect tickers with incomplete/stale price data.
+
+        Compares each ticker's last data date against the latest date
+        across all tickers. Any ticker with an earlier last date is
+        considered stale.
+
+        Returns:
+            List of StaleTicker objects for tickers with incomplete data
+        """
+        if self.portfolio.type == PortfolioType.SNAPSHOT:
+            positions = self.positions
+            if positions.empty:
+                return []
+            symbols = [s for s in positions['symbol'].unique() if s != 'CASH']
+            quantities = {row['symbol']: float(row['quantity'])
+                          for _, row in positions.iterrows()}
+        else:
+            txns = self.transactions
+            if txns.empty:
+                return []
+            symbols = [s for s in txns['symbol'].unique() if s != 'CASH']
+            quantities: Dict[str, float] = {}
+            for _, txn in txns.iterrows():
+                sym = txn['symbol']
+                if sym == 'CASH':
+                    continue
+                qty = float(txn['quantity'])
+                side = txn['side'].upper()
+                if side == 'BUY':
+                    quantities[sym] = quantities.get(sym, 0.0) + qty
+                elif side == 'SELL':
+                    quantities[sym] = quantities.get(sym, 0.0) - qty
+            quantities = {k: v for k, v in quantities.items() if v > 0}
+
+        if not symbols:
+            return []
+
+        # Get last date for each symbol
+        last_dates: Dict[str, pd.Timestamp] = {}
+        last_prices: Dict[str, float] = {}
+
+        for sym in symbols:
+            df = self._get_price_history(sym)
+            if not df.empty:
+                last_dates[sym] = df.index[-1]
+                last_prices[sym] = float(df['Close'].iloc[-1])
+
+        if not last_dates:
+            return []
+
+        # Find the latest date across all symbols
+        latest_date = max(last_dates.values())
+
+        # Identify stale tickers
+        stale_list: List[StaleTicker] = []
+        for sym, last_date in last_dates.items():
+            if last_date < latest_date:
+                qty = quantities.get(sym, 0.0)
+                price = last_prices.get(sym, 0.0)
+                stale_list.append(StaleTicker(
+                    symbol=sym,
+                    last_date=last_date.strftime('%Y-%m-%d'),
+                    last_price=price,
+                    quantity=qty,
+                    market_value=price * qty
+                ))
+
+        self.stale_tickers = stale_list
+        return stale_list
+
+    def set_stale_ticker_handling(
+        self,
+        handling: List[StaleTickerHandling]
+    ) -> None:
+        """Set how to handle each stale ticker.
+
+        Args:
+            handling: List of StaleTickerHandling specifying action per ticker
+        """
+        self.stale_ticker_handling = {h.symbol: h.action for h in handling}
+        # Clear caches to recalculate with new handling
+        self._nav_cache = None
+        self._base_data_cache = None
+        self.liquidation_events = []
+
+    def get_liquidation_events(self) -> List[LiquidationEvent]:
+        """Get list of liquidation events after NAV calculation.
+
+        Returns:
+            List of LiquidationEvent objects
+        """
+        return self.liquidation_events

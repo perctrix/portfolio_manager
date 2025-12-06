@@ -11,7 +11,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from collections import defaultdict
 from pydantic import BaseModel
-from app.models.portfolio import Portfolio, BondPosition
+from app.models.portfolio import (
+    Portfolio, BondPosition, StaleTicker, StaleTickerHandling
+)
 from app.core import prices, engine, ticker_validator
 from app.core.indicators.aggregator import calculate_markowitz_analysis
 
@@ -361,6 +363,7 @@ class PortfolioFullRequest(BaseModel):
     portfolio: Portfolio
     data: List[dict]
     bonds: List[BondPosition] = []
+    stale_ticker_handling: List[StaleTickerHandling] = []
 
 
 @router.post("/calculate/portfolio-full")
@@ -370,15 +373,17 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
 
     Event flow:
     1. prices_loaded - price data (parallel loaded)
-    2. nav_calculated - NAV history
-    3. indicators_basic_calculated - basic indicators
-    4. benchmark_comparison_calculated - benchmark comparison
-    5. indicators_all_calculated - all indicators
-    6. complete - completion marker
+    2. stale_tickers_detected - (optional) stale tickers found
+    3. nav_calculated - NAV history
+    4. indicators_basic_calculated - basic indicators
+    5. benchmark_comparison_calculated - benchmark comparison
+    6. indicators_all_calculated - all indicators
+    7. complete - completion marker with liquidation_events
     """
     portfolio = request.portfolio
     data = request.data
     bonds = request.bonds
+    stale_ticker_handling = request.stale_ticker_handling
 
     async def event_generator():
         try:
@@ -414,7 +419,7 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             }
 
             # ============================================
-            # PHASE 2: Send prices_loaded, calculate NAV
+            # PHASE 2: Send prices_loaded, detect stale tickers
             # ============================================
             yield f"event: prices_loaded\n"
             yield f"data: {json.dumps({'prices': price_data, 'benchmarks': benchmark_formatted})}\n\n"
@@ -422,6 +427,22 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             # Create engine with pre-loaded price cache
             eng = engine.PortfolioEngine(portfolio, data, bonds)
             eng.set_price_cache(price_cache)
+
+            # Detect stale tickers (only if no handling provided yet)
+            if not stale_ticker_handling:
+                stale_tickers = eng.detect_stale_tickers()
+                if stale_tickers:
+                    stale_data = [t.model_dump() for t in stale_tickers]
+                    yield f"event: stale_tickers_detected\n"
+                    yield f"data: {json.dumps({'stale_tickers': stale_data})}\n\n"
+                    # Stop here and wait for user to provide handling
+                    yield f"event: awaiting_stale_ticker_handling\n"
+                    yield f"data: {json.dumps({'message': 'Waiting for stale ticker handling'})}\n\n"
+                    return
+            else:
+                # Apply user-provided stale ticker handling
+                eng.set_stale_ticker_handling(stale_ticker_handling)
+
             nav = eng.calculate_nav_history()
 
             nav_result = {
@@ -497,12 +518,14 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             # ============================================
             # PHASE 5: Complete
             # ============================================
+            liquidation_events = eng.get_liquidation_events()
             completion_data = {
                 "failed_tickers": eng.failed_tickers,
                 "suggested_initial_deposit": (
                     eng.suggested_initial_deposit
                     if eng.suggested_initial_deposit > 0 else None
-                )
+                ),
+                "liquidation_events": [e.model_dump() for e in liquidation_events]
             }
 
             yield f"event: complete\n"
