@@ -1,7 +1,7 @@
 from enum import Enum, IntEnum
 from pydantic import BaseModel
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, List
 
 
 class PortfolioType(str, Enum):
@@ -37,3 +37,30 @@ class Portfolio(BaseModel):
     base_currency: str = "USD"
     created_at: datetime = datetime.now()
     description: Optional[str] = None
+
+
+class StaleTickerAction(str, Enum):
+    LIQUIDATE = "liquidate"  # Convert to cash at last price
+    FREEZE = "freeze"        # Keep last price unchanged for future dates
+    REMOVE = "remove"        # Remove from portfolio (value = 0)
+
+
+class StaleTicker(BaseModel):
+    symbol: str
+    last_date: str           # YYYY-MM-DD format
+    last_price: float
+    quantity: float
+    market_value: float      # last_price * quantity
+
+
+class StaleTickerHandling(BaseModel):
+    symbol: str
+    action: StaleTickerAction
+
+
+class LiquidationEvent(BaseModel):
+    date: str                # YYYY-MM-DD format
+    symbol: str
+    price: float
+    quantity: float
+    cash_amount: float       # price * quantity
