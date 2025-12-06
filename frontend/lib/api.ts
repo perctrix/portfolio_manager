@@ -1,4 +1,4 @@
-import { Portfolio, BenchmarkComparison, BenchmarkMetrics, BondPosition, StaleTicker, StaleTickerHandling, LiquidationEvent } from '@/types';
+import { Portfolio, BenchmarkComparison, BenchmarkMetrics, BondPosition, StaleTicker, StaleTickerHandling, LiquidationEvent, UnresolvedSymbol, SymbolResolution } from '@/types';
 import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -154,6 +154,8 @@ export async function calculateBenchmarkComparison(
 }
 
 export interface PortfolioStreamCallbacks {
+    onSymbolsUnresolved?: (data: { unresolved_symbols: UnresolvedSymbol[] }) => void;
+    onAwaitingSymbolResolution?: () => void;
     onPricesLoaded?: (data: { prices: any, benchmarks: any }) => void;
     onStaleTickersDetected?: (data: { stale_tickers: StaleTicker[] }) => void;
     onAwaitingStaleTickerHandling?: () => void;
@@ -170,12 +172,19 @@ export async function calculatePortfolioFullStream(
     data: any[],
     callbacks: PortfolioStreamCallbacks,
     bonds: BondPosition[] = [],
-    staleTickerHandling: StaleTickerHandling[] = []
+    staleTickerHandling: StaleTickerHandling[] = [],
+    symbolResolutions: SymbolResolution[] = []
 ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portfolio, data, bonds, stale_ticker_handling: staleTickerHandling }),
+        body: JSON.stringify({
+            portfolio,
+            data,
+            bonds,
+            stale_ticker_handling: staleTickerHandling,
+            symbol_resolutions: symbolResolutions
+        }),
     });
 
     if (!response.ok) {
@@ -220,6 +229,12 @@ export async function calculatePortfolioFullStream(
                 }
 
                 switch (event) {
+                    case 'symbols_unresolved':
+                        callbacks.onSymbolsUnresolved?.(data);
+                        break;
+                    case 'awaiting_symbol_resolution':
+                        callbacks.onAwaitingSymbolResolution?.();
+                        break;
                     case 'prices_loaded':
                         callbacks.onPricesLoaded?.(data);
                         break;
