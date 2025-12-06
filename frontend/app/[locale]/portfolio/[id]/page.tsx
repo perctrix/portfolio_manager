@@ -903,109 +903,119 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
 
                 {allIndicators && (
                     <>
-                        <IndicatorCategory
-                            title={tIndicators('returns')}
-                            description={tIndicators('returnsDesc')}
-                            isOpen={expandedSections.has('returns')}
-                            onToggle={() => toggleSection('returns')}
-                        >
-                            <IndicatorGrid
-                                indicators={[
-                                    { label: tIndicators('totalReturn'), value: allIndicators.returns.total_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.total_return) },
-                                    { label: t('cagr'), value: allIndicators.returns.cagr, format: 'percentage' },
-                                    { label: tIndicators('ytdReturn'), value: allIndicators.returns.ytd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.ytd_return) },
-                                    { label: tIndicators('mtdReturn'), value: allIndicators.returns.mtd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.mtd_return) },
-                                    { label: tIndicators('realizedPnl'), value: allIndicators.returns.realized_pnl, format: 'currency' },
-                                    { label: tIndicators('unrealizedPnl'), value: allIndicators.returns.unrealized_pnl, format: 'currency' },
-                                    { label: tIndicators('totalPnl'), value: allIndicators.returns.total_pnl, format: 'currency' },
-                                    { label: tIndicators('twr'), value: allIndicators.returns.twr, format: 'percentage' },
-                                    { label: tIndicators('irr'), value: allIndicators.returns.irr, format: 'percentage' },
-                                ]}
-                                columns={3}
-                            />
-                            {allIndicators.returns.monthly_returns && (
-                                <MonthlyReturnsTable monthlyReturns={allIndicators.returns.monthly_returns} />
-                            )}
-                        </IndicatorCategory>
+                        {allIndicators.returns && (
+                            <IndicatorCategory
+                                title={tIndicators('returns')}
+                                description={tIndicators('returnsDesc')}
+                                isOpen={expandedSections.has('returns')}
+                                onToggle={() => toggleSection('returns')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: tIndicators('totalReturn'), value: allIndicators.returns.total_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.total_return) },
+                                        { label: t('cagr'), value: allIndicators.returns.cagr, format: 'percentage' },
+                                        { label: tIndicators('ytdReturn'), value: allIndicators.returns.ytd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.ytd_return) },
+                                        { label: tIndicators('mtdReturn'), value: allIndicators.returns.mtd_return, format: 'percentage', trend: getTrendDirection(allIndicators.returns.mtd_return) },
+                                        { label: tIndicators('realizedPnl'), value: allIndicators.returns.realized_pnl, format: 'currency' },
+                                        { label: tIndicators('unrealizedPnl'), value: allIndicators.returns.unrealized_pnl, format: 'currency' },
+                                        { label: tIndicators('totalPnl'), value: allIndicators.returns.total_pnl, format: 'currency' },
+                                        { label: tIndicators('twr'), value: allIndicators.returns.twr, format: 'percentage' },
+                                        { label: tIndicators('irr'), value: allIndicators.returns.irr, format: 'percentage' },
+                                    ]}
+                                    columns={3}
+                                />
+                                {allIndicators.returns.monthly_returns && (
+                                    <MonthlyReturnsTable monthlyReturns={allIndicators.returns.monthly_returns} />
+                                )}
+                            </IndicatorCategory>
+                        )}
 
-                        <IndicatorCategory
-                            title={tIndicators('riskVolatility')}
-                            description={tIndicators('riskVolatilityDesc')}
-                            isOpen={expandedSections.has('risk')}
-                            onToggle={() => toggleSection('risk')}
-                        >
-                            <IndicatorGrid
-                                indicators={[
-                                    { label: tIndicators('dailyVolatility'), value: allIndicators.risk.daily_volatility, format: 'percentage' },
-                                    { label: tIndicators('annualizedVolatility'), value: allIndicators.risk.annualized_volatility, format: 'percentage' },
-                                    { label: tIndicators('rollingVolatility30d'), value: allIndicators.risk.rolling_volatility_30d, format: 'percentage' },
-                                    { label: tIndicators('upsideVolatility'), value: allIndicators.risk.upside_volatility, format: 'percentage' },
-                                    { label: tIndicators('downsideVolatility'), value: allIndicators.risk.downside_volatility, format: 'percentage' },
-                                    { label: tIndicators('semivariance'), value: allIndicators.risk.semivariance, format: 'number' },
-                                ]}
-                                columns={3}
-                            />
-                        </IndicatorCategory>
+                        {allIndicators.risk && (
+                            <IndicatorCategory
+                                title={tIndicators('riskVolatility')}
+                                description={tIndicators('riskVolatilityDesc')}
+                                isOpen={expandedSections.has('risk')}
+                                onToggle={() => toggleSection('risk')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: tIndicators('dailyVolatility'), value: allIndicators.risk.daily_volatility, format: 'percentage' },
+                                        { label: tIndicators('annualizedVolatility'), value: allIndicators.risk.annualized_volatility, format: 'percentage' },
+                                        { label: tIndicators('rollingVolatility30d'), value: allIndicators.risk.rolling_volatility_30d, format: 'percentage' },
+                                        { label: tIndicators('upsideVolatility'), value: allIndicators.risk.upside_volatility, format: 'percentage' },
+                                        { label: tIndicators('downsideVolatility'), value: allIndicators.risk.downside_volatility, format: 'percentage' },
+                                        { label: tIndicators('semivariance'), value: allIndicators.risk.semivariance, format: 'number' },
+                                    ]}
+                                    columns={3}
+                                />
+                            </IndicatorCategory>
+                        )}
 
-                        <IndicatorCategory
-                            title={tIndicators('drawdown')}
-                            description={tIndicators('drawdownDesc')}
-                            isOpen={expandedSections.has('drawdown')}
-                            onToggle={() => toggleSection('drawdown')}
-                        >
-                            <IndicatorGrid
-                                indicators={[
-                                    { label: t('maxDrawdown'), value: allIndicators.drawdown.max_drawdown, format: 'percentage', trend: 'down' },
-                                    { label: tIndicators('maxDrawdownDuration'), value: allIndicators.drawdown.max_drawdown_duration || 0, format: 'days' },
-                                    { label: tIndicators('averageDrawdown'), value: allIndicators.drawdown.avg_drawdown, format: 'percentage' },
-                                    { label: tIndicators('ulcerIndex'), value: allIndicators.drawdown.ulcer_index || 0, format: 'number', description: tIndicators('ulcerIndexDesc') },
-                                    { label: tIndicators('recoveryDays'), value: allIndicators.drawdown.recovery_days || 0, format: 'days' },
-                                    { label: tIndicators('consecutiveLossDays'), value: allIndicators.drawdown.consecutive_loss_days, format: 'days' },
-                                    { label: tIndicators('consecutiveGainDays'), value: allIndicators.drawdown.consecutive_gain_days, format: 'days' },
-                                ]}
-                                columns={3}
-                            />
-                        </IndicatorCategory>
+                        {allIndicators.drawdown && (
+                            <IndicatorCategory
+                                title={tIndicators('drawdown')}
+                                description={tIndicators('drawdownDesc')}
+                                isOpen={expandedSections.has('drawdown')}
+                                onToggle={() => toggleSection('drawdown')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: t('maxDrawdown'), value: allIndicators.drawdown.max_drawdown, format: 'percentage', trend: 'down' },
+                                        { label: tIndicators('maxDrawdownDuration'), value: allIndicators.drawdown.max_drawdown_duration || 0, format: 'days' },
+                                        { label: tIndicators('averageDrawdown'), value: allIndicators.drawdown.avg_drawdown, format: 'percentage' },
+                                        { label: tIndicators('ulcerIndex'), value: allIndicators.drawdown.ulcer_index || 0, format: 'number', description: tIndicators('ulcerIndexDesc') },
+                                        { label: tIndicators('recoveryDays'), value: allIndicators.drawdown.recovery_days || 0, format: 'days' },
+                                        { label: tIndicators('consecutiveLossDays'), value: allIndicators.drawdown.consecutive_loss_days, format: 'days' },
+                                        { label: tIndicators('consecutiveGainDays'), value: allIndicators.drawdown.consecutive_gain_days, format: 'days' },
+                                    ]}
+                                    columns={3}
+                                />
+                            </IndicatorCategory>
+                        )}
 
-                        <IndicatorCategory
-                            title={tIndicators('riskAdjustedRatios')}
-                            description={tIndicators('riskAdjustedRatiosDesc')}
-                            isOpen={expandedSections.has('ratios')}
-                            onToggle={() => toggleSection('ratios')}
-                        >
-                            <IndicatorGrid
-                                indicators={[
-                                    { label: t('sharpeRatio'), value: allIndicators.risk_adjusted_ratios.sharpe, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sharpe) },
-                                    { label: tIndicators('rollingSharpe30d'), value: allIndicators.risk_adjusted_ratios.rolling_sharpe_30d, format: 'number' },
-                                    { label: tIndicators('sortinoRatio'), value: allIndicators.risk_adjusted_ratios.sortino, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sortino) },
-                                    { label: tIndicators('calmarRatio'), value: allIndicators.risk_adjusted_ratios.calmar, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.calmar) },
-                                    ...(allIndicators.risk_adjusted_ratios.treynor ? [{ label: tIndicators('treynorRatio'), value: allIndicators.risk_adjusted_ratios.treynor, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.treynor), description: tIndicators('treynorRatioDesc') }] : []),
-                                    ...(allIndicators.risk_adjusted_ratios.omega ? [{ label: tIndicators('omegaRatio'), value: allIndicators.risk_adjusted_ratios.omega, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.omega), description: tIndicators('omegaRatioDesc') }] : []),
-                                    ...(allIndicators.risk_adjusted_ratios.m2_measure ? [{ label: tIndicators('m2Measure'), value: allIndicators.risk_adjusted_ratios.m2_measure, format: 'percentage' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.m2_measure), description: tIndicators('m2MeasureDesc') }] : []),
-                                    ...(allIndicators.risk_adjusted_ratios.gain_to_pain ? [{ label: tIndicators('gainToPain'), value: allIndicators.risk_adjusted_ratios.gain_to_pain, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.gain_to_pain), description: tIndicators('gainToPainDesc') }] : []),
-                                    ...(allIndicators.risk_adjusted_ratios.ulcer_performance_index ? [{ label: tIndicators('ulcerPerformanceIndex'), value: allIndicators.risk_adjusted_ratios.ulcer_performance_index, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.ulcer_performance_index), description: tIndicators('ulcerPerformanceIndexDesc') }] : []),
-                                ]}
-                                columns={4}
-                            />
-                        </IndicatorCategory>
+                        {allIndicators.risk_adjusted_ratios && (
+                            <IndicatorCategory
+                                title={tIndicators('riskAdjustedRatios')}
+                                description={tIndicators('riskAdjustedRatiosDesc')}
+                                isOpen={expandedSections.has('ratios')}
+                                onToggle={() => toggleSection('ratios')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: t('sharpeRatio'), value: allIndicators.risk_adjusted_ratios.sharpe, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sharpe) },
+                                        { label: tIndicators('rollingSharpe30d'), value: allIndicators.risk_adjusted_ratios.rolling_sharpe_30d, format: 'number' },
+                                        { label: tIndicators('sortinoRatio'), value: allIndicators.risk_adjusted_ratios.sortino, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.sortino) },
+                                        { label: tIndicators('calmarRatio'), value: allIndicators.risk_adjusted_ratios.calmar, format: 'number', trend: getTrendDirection(allIndicators.risk_adjusted_ratios.calmar) },
+                                        ...(allIndicators.risk_adjusted_ratios.treynor ? [{ label: tIndicators('treynorRatio'), value: allIndicators.risk_adjusted_ratios.treynor, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.treynor), description: tIndicators('treynorRatioDesc') }] : []),
+                                        ...(allIndicators.risk_adjusted_ratios.omega ? [{ label: tIndicators('omegaRatio'), value: allIndicators.risk_adjusted_ratios.omega, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.omega), description: tIndicators('omegaRatioDesc') }] : []),
+                                        ...(allIndicators.risk_adjusted_ratios.m2_measure ? [{ label: tIndicators('m2Measure'), value: allIndicators.risk_adjusted_ratios.m2_measure, format: 'percentage' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.m2_measure), description: tIndicators('m2MeasureDesc') }] : []),
+                                        ...(allIndicators.risk_adjusted_ratios.gain_to_pain ? [{ label: tIndicators('gainToPain'), value: allIndicators.risk_adjusted_ratios.gain_to_pain, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.gain_to_pain), description: tIndicators('gainToPainDesc') }] : []),
+                                        ...(allIndicators.risk_adjusted_ratios.ulcer_performance_index ? [{ label: tIndicators('ulcerPerformanceIndex'), value: allIndicators.risk_adjusted_ratios.ulcer_performance_index, format: 'number' as const, trend: getTrendDirection(allIndicators.risk_adjusted_ratios.ulcer_performance_index), description: tIndicators('ulcerPerformanceIndexDesc') }] : []),
+                                    ]}
+                                    columns={4}
+                                />
+                            </IndicatorCategory>
+                        )}
 
-                        <IndicatorCategory
-                            title={tIndicators('tailRisk')}
-                            description={tIndicators('tailRiskDesc')}
-                            isOpen={expandedSections.has('tail_risk')}
-                            onToggle={() => toggleSection('tail_risk')}
-                        >
-                            <IndicatorGrid
-                                indicators={[
-                                    { label: t('var95'), value: allIndicators.tail_risk.var_95, format: 'percentage', trend: 'down' },
-                                    { label: tIndicators('cvar95'), value: allIndicators.tail_risk.cvar_95, format: 'percentage', trend: 'down' },
-                                    { label: tIndicators('skewness'), value: allIndicators.tail_risk.skewness, format: 'number' },
-                                    { label: tIndicators('kurtosis'), value: allIndicators.tail_risk.kurtosis, format: 'number' },
-                                    ...(allIndicators.tail_risk.tail_ratio ? [{ label: tIndicators('tailRatio'), value: allIndicators.tail_risk.tail_ratio, format: 'number' as const, trend: getTrendDirection(allIndicators.tail_risk.tail_ratio), description: tIndicators('tailRatioDesc') }] : []),
-                                ]}
-                                columns={4}
-                            />
-                        </IndicatorCategory>
+                        {allIndicators.tail_risk && (
+                            <IndicatorCategory
+                                title={tIndicators('tailRisk')}
+                                description={tIndicators('tailRiskDesc')}
+                                isOpen={expandedSections.has('tail_risk')}
+                                onToggle={() => toggleSection('tail_risk')}
+                            >
+                                <IndicatorGrid
+                                    indicators={[
+                                        { label: t('var95'), value: allIndicators.tail_risk.var_95, format: 'percentage', trend: 'down' },
+                                        { label: tIndicators('cvar95'), value: allIndicators.tail_risk.cvar_95, format: 'percentage', trend: 'down' },
+                                        { label: tIndicators('skewness'), value: allIndicators.tail_risk.skewness, format: 'number' },
+                                        { label: tIndicators('kurtosis'), value: allIndicators.tail_risk.kurtosis, format: 'number' },
+                                        ...(allIndicators.tail_risk.tail_ratio ? [{ label: tIndicators('tailRatio'), value: allIndicators.tail_risk.tail_ratio, format: 'number' as const, trend: getTrendDirection(allIndicators.tail_risk.tail_ratio), description: tIndicators('tailRatioDesc') }] : []),
+                                    ]}
+                                    columns={4}
+                                />
+                            </IndicatorCategory>
+                        )}
 
                         {allIndicators.allocation && (
                             <IndicatorCategory
