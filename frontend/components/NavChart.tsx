@@ -307,7 +307,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
         };
     }, [refAreaLeft, refAreaRight, filteredData, isComparisonMode]);
 
-    const timeRanges: TimeRange[] = ['YTD', '6M', '1Y', '2Y', '3Y', '5Y', 'ALL', 'CUSTOM'];
+    const timeRanges: TimeRange[] = ['6M', 'YTD', '1Y', '2Y', '3Y', '5Y', 'ALL', 'CUSTOM'];
 
     const handleTimeRangeChange = (range: TimeRange) => {
         setTimeRange(range);
