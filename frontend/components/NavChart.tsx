@@ -20,7 +20,7 @@ interface ChartPoint {
     [key: string]: number | string | undefined;
 }
 
-type TimeRange = '6M' | '1Y' | '2Y' | '3Y' | '5Y' | 'ALL' | 'CUSTOM';
+type TimeRange = 'YTD' | '6M' | '1Y' | '2Y' | '3Y' | '5Y' | 'ALL' | 'CUSTOM';
 
 const MIN_DATE = '2008-01-01';
 
@@ -74,6 +74,17 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
             return data.filter(d => {
                 const date = new Date(d.date);
                 return date >= startDate && date <= endDate;
+            });
+        }
+
+        if (timeRange === 'YTD') {
+            // Year-to-Date: from January 1st of current year to today
+            startDate = new Date(today.getFullYear(), 0, 1);
+            startDate.setHours(0, 0, 0, 0);
+
+            return data.filter(d => {
+                const date = new Date(d.date);
+                return date >= startDate && date <= today;
             });
         }
 
@@ -296,7 +307,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
         };
     }, [refAreaLeft, refAreaRight, filteredData, isComparisonMode]);
 
-    const timeRanges: TimeRange[] = ['6M', '1Y', '2Y', '3Y', '5Y', 'ALL', 'CUSTOM'];
+    const timeRanges: TimeRange[] = ['6M', 'YTD', '1Y', '2Y', '3Y', '5Y', 'ALL', 'CUSTOM'];
 
     const handleTimeRangeChange = (range: TimeRange) => {
         setTimeRange(range);
