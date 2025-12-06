@@ -371,6 +371,7 @@ class PortfolioFullRequest(BaseModel):
     bonds: List[BondPosition] = []
     stale_ticker_handling: List[StaleTickerHandling] = []
     symbol_resolutions: List[SymbolResolution] = []
+    skipped_symbols: List[str] = []
 
 
 @router.post("/calculate/portfolio-full")
@@ -394,6 +395,7 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
     bonds = request.bonds
     stale_ticker_handling = request.stale_ticker_handling
     symbol_resolutions = request.symbol_resolutions
+    skipped_symbols = [s.upper() for s in request.skipped_symbols]
 
     async def event_generator():
         nonlocal data
@@ -401,6 +403,9 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
         try:
             from app.core.benchmarks import get_benchmark_loader
             from app.core.indicators.aggregator import calculate_benchmark_comparison
+
+            # Track skipped symbols as failed tickers
+            user_skipped_tickers: List[str] = list(skipped_symbols)
 
             # Extract unique symbols from portfolio data
             symbols = list(set([
@@ -412,20 +417,31 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             # PHASE 0: Symbol Resolution
             # Resolve foreign stock symbols using currency hints
             # ============================================
-            if symbol_resolutions:
+            # If user has already dealt with resolution (provided resolutions or skipped symbols),
+            # don't try automatic resolution again
+            if symbol_resolutions or skipped_symbols:
                 # Apply user-provided resolutions
                 resolution_map = {r.original.upper(): r.resolved.upper() for r in symbol_resolutions}
                 resolved_symbols = []
                 for sym in symbols:
+                    # Skip symbols that user explicitly skipped
+                    if sym in skipped_symbols:
+                        continue
                     resolved = resolution_map.get(sym, sym)
                     resolved_symbols.append(resolved)
                 symbols = resolved_symbols
 
-                # Update data with resolved symbols
+                # Update data with resolved symbols and filter out skipped symbols
+                updated_data = []
                 for row in data:
                     original_sym = row.get('symbol', '').upper()
+                    # Skip rows with skipped symbols
+                    if original_sym in skipped_symbols:
+                        continue
                     if original_sym in resolution_map:
                         row['symbol'] = resolution_map[original_sym]
+                    updated_data.append(row)
+                data = updated_data
             else:
                 # Try automatic symbol resolution
                 resolver = get_resolver()
@@ -602,8 +618,10 @@ async def calculate_portfolio_full_stream(request: PortfolioFullRequest):
             # PHASE 5: Complete
             # ============================================
             liquidation_events = eng.get_liquidation_events()
+            # Combine engine's failed_tickers with user-skipped symbols
+            all_failed_tickers = list(set(eng.failed_tickers + user_skipped_tickers))
             completion_data = {
-                "failed_tickers": eng.failed_tickers,
+                "failed_tickers": all_failed_tickers,
                 "suggested_initial_deposit": (
                     eng.suggested_initial_deposit
                     if eng.suggested_initial_deposit > 0 else None

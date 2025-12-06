@@ -8,7 +8,7 @@ import type { UnresolvedSymbol, SymbolResolution } from '@/types';
 interface SymbolResolutionModalProps {
     isOpen: boolean;
     unresolvedSymbols: UnresolvedSymbol[];
-    onConfirm: (resolutions: SymbolResolution[]) => void;
+    onConfirm: (resolutions: SymbolResolution[], skippedSymbols: string[]) => void;
     onCancel: () => void;
 }
 
@@ -67,7 +67,11 @@ export function SymbolResolutionModal({
                 resolved: resolutions[item.original].trim(),
             }));
 
-        onConfirm(result);
+        const skippedList: string[] = unresolvedSymbols
+            .filter((item) => skipped[item.original])
+            .map((item) => item.original);
+
+        onConfirm(result, skippedList);
     }, [unresolvedSymbols, resolutions, skipped, onConfirm]);
 
     const getSymbolStatus = (original: string): 'resolved' | 'skipped' | 'pending' => {

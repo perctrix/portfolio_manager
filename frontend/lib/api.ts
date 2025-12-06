@@ -173,7 +173,8 @@ export async function calculatePortfolioFullStream(
     callbacks: PortfolioStreamCallbacks,
     bonds: BondPosition[] = [],
     staleTickerHandling: StaleTickerHandling[] = [],
-    symbolResolutions: SymbolResolution[] = []
+    symbolResolutions: SymbolResolution[] = [],
+    skippedSymbols: string[] = []
 ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
         method: 'POST',
@@ -183,7 +184,8 @@ export async function calculatePortfolioFullStream(
             data,
             bonds,
             stale_ticker_handling: staleTickerHandling,
-            symbol_resolutions: symbolResolutions
+            symbol_resolutions: symbolResolutions,
+            skipped_symbols: skippedSymbols
         }),
     });
 

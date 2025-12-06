@@ -303,7 +303,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
-    async function handleSymbolResolutionConfirm(resolutions: SymbolResolution[]) {
+    async function handleSymbolResolutionConfirm(resolutions: SymbolResolution[], skippedSymbols: string[]) {
         setIsSymbolResolutionModalOpen(false);
         setSymbolResolutions(resolutions);
         setUnresolvedSymbols([]);
@@ -391,7 +391,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     },
                     portfolioBonds,
                     staleTickerHandling,
-                    resolutions
+                    resolutions,
+                    skippedSymbols
                 );
             } catch (error) {
                 console.error(error);
