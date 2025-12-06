@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Portfolio, AnalysisCache, BondPosition, StaleTicker, StaleTickerHandling, LiquidationEvent } from '@/types';
+import { Portfolio, AnalysisCache, BondPosition, StaleTicker, StaleTickerHandling, LiquidationEvent, UnresolvedSymbol, SymbolResolution } from '@/types';
 import { AllIndicators } from '@/types/indicators';
 import { calculateDataHash } from '@/utils/hash';
 import { MetricsCard } from '@/components/MetricsCard';
@@ -15,6 +15,7 @@ import { AddTransactionModal } from '@/components/AddTransactionModal';
 import { AddBondModal } from '@/components/AddBondModal';
 import { EditSnapshotModal } from '@/components/EditSnapshotModal';
 import { StaleTickerModal } from '@/components/StaleTickerModal';
+import { SymbolResolutionModal } from '@/components/SymbolResolutionModal';
 import { BenchmarkPanel } from '@/components/BenchmarkPanel';
 import { BenchmarkComparisonTable } from '@/components/BenchmarkComparisonTable';
 import IndicatorCategory from '@/components/IndicatorCategory';
@@ -66,6 +67,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [efficientFrontierData, setEfficientFrontierData] = useState<EfficientFrontierData | null>(null);
     const [loadingMarkowitz, setLoadingMarkowitz] = useState(false);
     const [allowShortSelling, setAllowShortSelling] = useState(false);
+
+    // Symbol resolution handling
+    const [unresolvedSymbols, setUnresolvedSymbols] = useState<UnresolvedSymbol[]>([]);
+    const [isSymbolResolutionModalOpen, setIsSymbolResolutionModalOpen] = useState(false);
+    const [symbolResolutions, setSymbolResolutions] = useState<SymbolResolution[]>([]);
 
     // Stale ticker handling
     const [staleTickers, setStaleTickers] = useState<StaleTicker[]>([]);
@@ -148,6 +154,17 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                     portfolioData.meta,
                     portfolioData.data,
                     {
+                        onSymbolsUnresolved: (data) => {
+                            setUnresolvedSymbols(data.unresolved_symbols);
+                            setPendingPortfolioData(portfolioData);
+                            setIsSymbolResolutionModalOpen(true);
+                        },
+
+                        onAwaitingSymbolResolution: () => {
+                            // Stream paused, waiting for user input via modal
+                            setLoading(false);
+                        },
+
                         onPricesLoaded: () => {
                             setLoadingStep(1);
                         },
@@ -231,7 +248,8 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                         }
                     },
                     portfolioBonds,
-                    staleTickerHandling
+                    staleTickerHandling,
+                    symbolResolutions
                 );
             } else {
                 setNavHistory([]);
@@ -283,6 +301,112 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 alert(t('deleteTransactionError'));
             }
         }
+    }
+
+    async function handleSymbolResolutionConfirm(resolutions: SymbolResolution[]) {
+        setIsSymbolResolutionModalOpen(false);
+        setSymbolResolutions(resolutions);
+        setUnresolvedSymbols([]);
+        setLoading(true);
+        setLoadingStep(0);
+
+        // Restart calculation with symbol resolutions
+        if (pendingPortfolioData) {
+            const portfolioBonds = pendingPortfolioData.bonds || [];
+            const cacheData: {
+                navHistory: Array<{date: string, value: number}>;
+                cashHistory: Array<{date: string, value: number}>;
+                allIndicators: AllIndicators | null;
+                benchmarkComparison: BenchmarkComparison | null;
+            } = {
+                navHistory: [],
+                cashHistory: [],
+                allIndicators: null,
+                benchmarkComparison: null
+            };
+
+            try {
+                await calculatePortfolioFullStream(
+                    pendingPortfolioData.meta,
+                    pendingPortfolioData.data,
+                    {
+                        onPricesLoaded: () => setLoadingStep(1),
+                        onStaleTickersDetected: (data) => {
+                            setStaleTickers(data.stale_tickers);
+                            setIsStaleTickerModalOpen(true);
+                        },
+                        onAwaitingStaleTickerHandling: () => {
+                            setLoading(false);
+                        },
+                        onNavCalculated: (data) => {
+                            cacheData.navHistory = data.nav;
+                            cacheData.cashHistory = data.cash || [];
+                            setNavHistory(data.nav);
+                            setCashHistory(data.cash || []);
+                            setLoadingStep(2);
+                        },
+                        onIndicatorsBasicCalculated: (data) => {
+                            setIndicators(data);
+                            setLoadingStep(3);
+                        },
+                        onIndicatorsAllCalculated: (data) => {
+                            cacheData.allIndicators = data;
+                            setAllIndicators(data);
+                            setLoadingStep(4);
+                        },
+                        onBenchmarkComparisonCalculated: (data) => {
+                            cacheData.benchmarkComparison = data.benchmarks;
+                            setBenchmarkComparison(data.benchmarks);
+                            setLoadingBenchmarkComparison(false);
+                            setLoadingStep(5);
+                        },
+                        onComplete: async (data) => {
+                            setLoadingStep(6);
+                            if (data.liquidation_events && data.liquidation_events.length > 0) {
+                                setLiquidationEvents(data.liquidation_events);
+                            }
+                            const dataHash = await calculateDataHash(pendingPortfolioData.data, portfolioBonds);
+                            const analysisCache: AnalysisCache = {
+                                version: '1.0',
+                                calculatedAt: new Date().toISOString(),
+                                dataHash,
+                                navHistory: cacheData.navHistory,
+                                cashHistory: cacheData.cashHistory,
+                                allIndicators: cacheData.allIndicators,
+                                benchmarkComparison: cacheData.benchmarkComparison
+                            };
+                            saveAnalysisCache(id, analysisCache);
+                            if (data.failed_tickers && data.failed_tickers.length > 0) {
+                                alert(`${t('tickerWarning')}\n${data.failed_tickers.join(', ')}\n\n${t('tickerWarningHint')}`);
+                            }
+                            setLoading(false);
+                            setPendingPortfolioData(null);
+                        },
+                        onError: (error) => {
+                            console.error('Stream error:', error);
+                            alert(t('loadError') || 'Failed to load portfolio data');
+                            setLoading(false);
+                            setPendingPortfolioData(null);
+                        }
+                    },
+                    portfolioBonds,
+                    staleTickerHandling,
+                    resolutions
+                );
+            } catch (error) {
+                console.error(error);
+                setLoading(false);
+                setPendingPortfolioData(null);
+            }
+        }
+    }
+
+    function handleSymbolResolutionCancel() {
+        setIsSymbolResolutionModalOpen(false);
+        setUnresolvedSymbols([]);
+        setPendingPortfolioData(null);
+        // Continue without resolution - just reload
+        loadData();
     }
 
     async function handleStaleTickerConfirm(handling: StaleTickerHandling[]) {
@@ -1237,6 +1361,13 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 onClose={() => setIsEditSnapshotOpen(false)}
                 onSubmit={handleUpdateSnapshot}
                 initialData={holdings}
+            />
+
+            <SymbolResolutionModal
+                isOpen={isSymbolResolutionModalOpen}
+                unresolvedSymbols={unresolvedSymbols}
+                onConfirm={handleSymbolResolutionConfirm}
+                onCancel={handleSymbolResolutionCancel}
             />
 
             <StaleTickerModal
