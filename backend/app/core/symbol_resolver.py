@@ -1,16 +1,16 @@
 """
 Symbol resolution service for mapping bare symbols to Yahoo Finance format.
 Uses currency hints to determine likely exchange suffixes.
+Validates symbols through the unified price data pipeline.
 """
 import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
 
+from app.core import prices
+from data.fetch_data import get_stealth_headers
 import requests
-
-from app.core.ticker_validator import validate_ticker_via_yahoo
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -55,6 +55,18 @@ class SymbolResolver:
             logger.error("Failed to load exchange_suffixes.json: %s", e)
             return {"mappings": {}, "no_suffix": ["USD"]}
 
+    def _validate_symbol(self, symbol: str) -> bool:
+        """
+        Validate symbol by attempting to get price data through the unified pipeline.
+        Uses prices.get_price_history() which handles caching internally.
+        """
+        try:
+            df = prices.get_price_history(symbol)
+            return df is not None and not df.empty
+        except Exception as e:
+            logger.debug("Symbol validation failed for %s: %s", symbol, e)
+            return False
+
     def resolve(
         self,
         symbol: str,
@@ -83,13 +95,12 @@ class SymbolResolver:
 
         # Step 1: Check if symbol already has an exchange suffix
         if self._has_exchange_suffix(symbol):
-            valid, info = validate_ticker_via_yahoo(symbol)
-            if valid and info:
+            if self._validate_symbol(symbol):
                 result = ResolvedSymbol(
                     original=symbol,
                     resolved=symbol,
                     currency=currency,
-                    exchange=info.get('exchange', 'UNKNOWN'),
+                    exchange=self._extract_exchange_from_suffix(symbol),
                     confidence=1.0,
                     source='exact'
                 )
@@ -99,13 +110,12 @@ class SymbolResolver:
         # Step 2: For USD, try without suffix first
         no_suffix_currencies = self._suffix_config.get('no_suffix', ['USD'])
         if currency in no_suffix_currencies:
-            valid, info = validate_ticker_via_yahoo(symbol)
-            if valid and info:
+            if self._validate_symbol(symbol):
                 result = ResolvedSymbol(
                     original=symbol,
                     resolved=symbol,
                     currency=currency,
-                    exchange=info.get('exchange', 'UNKNOWN'),
+                    exchange='US',
                     confidence=1.0,
                     source='exact'
                 )
@@ -123,13 +133,12 @@ class SymbolResolver:
         if primary:
             candidate = f"{symbol}{primary}"
             attempted.append(candidate)
-            valid, info = validate_ticker_via_yahoo(candidate)
-            if valid and info:
+            if self._validate_symbol(candidate):
                 result = ResolvedSymbol(
                     original=symbol,
                     resolved=candidate,
                     currency=currency,
-                    exchange=info.get('exchange', 'UNKNOWN'),
+                    exchange=primary.lstrip('.'),
                     confidence=0.9,
                     source='suffix_match'
                 )
@@ -141,13 +150,12 @@ class SymbolResolver:
         for suffix in alternatives:
             candidate = f"{symbol}{suffix}"
             attempted.append(candidate)
-            valid, info = validate_ticker_via_yahoo(candidate)
-            if valid and info:
+            if self._validate_symbol(candidate):
                 result = ResolvedSymbol(
                     original=symbol,
                     resolved=candidate,
                     currency=currency,
-                    exchange=info.get('exchange', 'UNKNOWN'),
+                    exchange=suffix.lstrip('.'),
                     confidence=0.7,
                     source='suffix_match'
                 )
@@ -156,13 +164,12 @@ class SymbolResolver:
 
         # Step 4: Try original symbol as fallback (maybe it works)
         if currency not in no_suffix_currencies:
-            valid, info = validate_ticker_via_yahoo(symbol)
-            if valid and info:
+            if self._validate_symbol(symbol):
                 result = ResolvedSymbol(
                     original=symbol,
                     resolved=symbol,
                     currency=currency,
-                    exchange=info.get('exchange', 'UNKNOWN'),
+                    exchange='UNKNOWN',
                     confidence=0.5,
                     source='fallback'
                 )
@@ -194,12 +201,28 @@ class SymbolResolver:
         ]
         return any(symbol.endswith(suffix) for suffix in known_suffixes)
 
+    def _extract_exchange_from_suffix(self, symbol: str) -> str:
+        """Extract exchange code from symbol suffix."""
+        for suffix in ['.DE', '.PA', '.L', '.HK', '.TW', '.TO', '.T', '.SS', '.SZ',
+                       '.AX', '.SW', '.SI', '.ST', '.OL', '.CO', '.KS', '.KQ',
+                       '.MI', '.AS', '.BR', '.MC', '.VI', '.V', '.CN', '.NE',
+                       '.NS', '.BO', '.NZ', '.MX', '.SA', '.JO', '.IL', '.OS',
+                       '.NG', '.F', '.TWO', '.VX']:
+            if symbol.endswith(suffix):
+                return suffix.lstrip('.')
+        return 'UNKNOWN'
+
     def _search_suggestions(self, symbol: str, limit: int = 5) -> list[dict]:
         """Use Yahoo Finance search API to find symbol suggestions."""
         try:
             url = "https://query2.finance.yahoo.com/v1/finance/search"
             params = {'q': symbol, 'quotes_count': limit, 'news_count': 0}
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(
+                url,
+                params=params,
+                headers=get_stealth_headers(),
+                timeout=10
+            )
 
             if response.status_code == 200:
                 data = response.json()
@@ -227,13 +250,12 @@ class SymbolResolver:
         original = original.upper().strip()
         currency = currency.upper().strip()
 
-        valid, info = validate_ticker_via_yahoo(resolved)
-        if valid and info:
+        if self._validate_symbol(resolved):
             result = ResolvedSymbol(
                 original=original,
                 resolved=resolved,
                 currency=currency,
-                exchange=info.get('exchange', 'UNKNOWN'),
+                exchange=self._extract_exchange_from_suffix(resolved) if self._has_exchange_suffix(resolved) else 'UNKNOWN',
                 confidence=1.0,
                 source='manual'
             )

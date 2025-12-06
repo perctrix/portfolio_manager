@@ -1373,6 +1373,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
             <StaleTickerModal
                 isOpen={isStaleTickerModalOpen}
                 staleTickers={staleTickers}
+                currency={portfolio?.base_currency || 'USD'}
                 onConfirm={handleStaleTickerConfirm}
                 onCancel={handleStaleTickerCancel}
             />

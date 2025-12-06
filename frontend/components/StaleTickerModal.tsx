@@ -8,6 +8,7 @@ import type { StaleTicker, StaleTickerAction, StaleTickerHandling } from '@/type
 interface StaleTickerModalProps {
     isOpen: boolean;
     staleTickers: StaleTicker[];
+    currency: string;
     onConfirm: (handling: StaleTickerHandling[]) => void;
     onCancel: () => void;
 }
@@ -21,6 +22,7 @@ const ACTION_OPTIONS: { value: StaleTickerAction; icon: React.ReactNode }[] = [
 export function StaleTickerModal({
     isOpen,
     staleTickers,
+    currency,
     onConfirm,
     onCancel,
 }: StaleTickerModalProps) {
@@ -56,7 +58,7 @@ export function StaleTickerModal({
     const formatCurrency = (value: number): string => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency: 'USD',
+            currency: currency || 'USD',
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         }).format(value);
