@@ -118,3 +118,16 @@ export interface LiquidationEvent {
     quantity: number;
     cash_amount: number;
 }
+
+// Symbol resolution types
+export interface UnresolvedSymbol {
+    original: string;
+    currency: string;
+    attempted: string[];
+    suggestions: Array<{ symbol: string; name: string; exchange: string }>;
+}
+
+export interface SymbolResolution {
+    original: string;
+    resolved: string;
+}
