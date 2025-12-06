@@ -3,12 +3,14 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Legend, ReferenceDot } from 'recharts';
+import type { LiquidationEvent } from '@/types';
 
 interface NavChartProps {
     data: { date: string; value: number }[];
     cashData?: { date: string; value: number }[];
     comparisonData?: { [symbol: string]: { date: string; value: number }[] };
     benchmarkData?: { [symbol: string]: { date: string; value: number }[] };
+    liquidationEvents?: LiquidationEvent[];
 }
 
 interface ChartPoint {
@@ -32,7 +34,7 @@ const BENCHMARK_COLORS = [
     '#14532d',
 ];
 
-export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkData = {} }: NavChartProps) {
+export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkData = {}, liquidationEvents = [] }: NavChartProps) {
     const t = useTranslations('NavChart');
     const [refAreaLeft, setRefAreaLeft] = useState<string | null>(null);
     const [refAreaRight, setRefAreaRight] = useState<string | null>(null);
@@ -546,6 +548,30 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                             />
                         </>
                     )}
+
+                    {/* Liquidation event markers */}
+                    {!isComparisonMode && liquidationEvents.map((event, idx) => {
+                        const dataPoint = chartData.find(d => d.date.substring(0, 10) === event.date.substring(0, 10));
+                        if (!dataPoint) return null;
+                        return (
+                            <ReferenceDot
+                                key={`liquidation-${idx}`}
+                                x={event.date}
+                                y={dataPoint.value}
+                                r={8}
+                                fill="#f59e0b"
+                                stroke="#fff"
+                                strokeWidth={2}
+                                label={{
+                                    value: event.symbol,
+                                    position: 'top',
+                                    fill: '#f59e0b',
+                                    fontSize: 10,
+                                    fontWeight: 'bold'
+                                }}
+                            />
+                        );
+                    })}
                 </LineChart>
             </ResponsiveContainer>
             </div>

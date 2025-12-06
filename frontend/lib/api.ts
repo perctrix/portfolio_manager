@@ -1,4 +1,4 @@
-import { Portfolio, BenchmarkComparison, BenchmarkMetrics, BondPosition } from '@/types';
+import { Portfolio, BenchmarkComparison, BenchmarkMetrics, BondPosition, StaleTicker, StaleTickerHandling, LiquidationEvent } from '@/types';
 import { AllIndicators, BasicIndicators } from '@/types/indicators';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -155,11 +155,13 @@ export async function calculateBenchmarkComparison(
 
 export interface PortfolioStreamCallbacks {
     onPricesLoaded?: (data: { prices: any, benchmarks: any }) => void;
+    onStaleTickersDetected?: (data: { stale_tickers: StaleTicker[] }) => void;
+    onAwaitingStaleTickerHandling?: () => void;
     onNavCalculated?: (data: { nav: any[], cash: any[], failed_tickers: string[] }) => void;
     onIndicatorsBasicCalculated?: (data: any) => void;
     onIndicatorsAllCalculated?: (data: AllIndicators) => void;
     onBenchmarkComparisonCalculated?: (data: { benchmarks: BenchmarkComparison }) => void;
-    onComplete?: (data: { failed_tickers: string[], suggested_initial_deposit?: number }) => void;
+    onComplete?: (data: { failed_tickers: string[], suggested_initial_deposit?: number, liquidation_events?: LiquidationEvent[] }) => void;
     onError?: (error: string) => void;
 }
 
@@ -167,12 +169,13 @@ export async function calculatePortfolioFullStream(
     portfolio: Portfolio,
     data: any[],
     callbacks: PortfolioStreamCallbacks,
-    bonds: BondPosition[] = []
+    bonds: BondPosition[] = [],
+    staleTickerHandling: StaleTickerHandling[] = []
 ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/calculate/portfolio-full`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portfolio, data, bonds }),
+        body: JSON.stringify({ portfolio, data, bonds, stale_ticker_handling: staleTickerHandling }),
     });
 
     if (!response.ok) {
@@ -219,6 +222,12 @@ export async function calculatePortfolioFullStream(
                 switch (event) {
                     case 'prices_loaded':
                         callbacks.onPricesLoaded?.(data);
+                        break;
+                    case 'stale_tickers_detected':
+                        callbacks.onStaleTickersDetected?.(data);
+                        break;
+                    case 'awaiting_stale_ticker_handling':
+                        callbacks.onAwaitingStaleTickerHandling?.();
                         break;
                     case 'nav_calculated':
                         callbacks.onNavCalculated?.(data);
