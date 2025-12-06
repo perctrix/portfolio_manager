@@ -1,8 +1,8 @@
 import { PortfolioType } from '@/types';
 
 // Target fields for each portfolio type
-export const TRANSACTION_FIELDS = ['datetime', 'symbol', 'side', 'quantity', 'price', 'fee'] as const;
-export const SNAPSHOT_FIELDS = ['symbol', 'quantity', 'cost_basis', 'as_of'] as const;
+export const TRANSACTION_FIELDS = ['datetime', 'symbol', 'side', 'quantity', 'price', 'fee', 'currency'] as const;
+export const SNAPSHOT_FIELDS = ['symbol', 'quantity', 'cost_basis', 'as_of', 'currency'] as const;
 
 export type TransactionField = typeof TRANSACTION_FIELDS[number];
 export type SnapshotField = typeof SNAPSHOT_FIELDS[number];
@@ -34,6 +34,8 @@ const FIELD_ALIASES: Record<TargetField, string[]> = {
   // Snapshot fields
   cost_basis: ['cost_basis', 'total_cost', 'cost', 'basis', 'costbasis', 'average_cost', 'avg_cost', 'book_value', 'investment'],
   as_of: ['as_of', 'date', 'snapshot_date', 'asof', 'position_date', 'value_date', 'reporting_date'],
+  // Common fields
+  currency: ['currency', 'ccy', 'curr', 'trading_currency', 'denomination', 'stock_currency', 'asset_currency'],
 };
 
 // Required fields for each type
@@ -505,6 +507,8 @@ function convertValue(value: string, field: TargetField, dateFormat: DateFormat 
     case 'side':
       return normalizeSide(trimmed);
     case 'symbol':
+      return trimmed.toUpperCase();
+    case 'currency':
       return trimmed.toUpperCase();
     default:
       return trimmed;
