@@ -402,6 +402,20 @@
     "hashMismatchWarning": "警告：投资组合数据自分析计算以来已被修改。缓存结果将被丢弃，指标将重新计算。",
     "cacheInfo": "使用缓存结果将立即加载。重新计算将获取最新价格，可能需要几秒钟。"
   },
+  "SymbolResolution": {
+    "title": "需要解析股票代码",
+    "description": "部分股票代码无法自动识别。请为每个股票选择正确的Yahoo Finance代码，或跳过以从计算中排除。",
+    "attempted": "已尝试",
+    "suggestions": "建议",
+    "orEnterManually": "或手动输入",
+    "skip": "跳过",
+    "skipped": "已跳过",
+    "resolvedCount": "{count} 个已解析",
+    "skippedCount": "{count} 个已跳过",
+    "pendingCount": "{count} 个待处理",
+    "cancel": "取消",
+    "confirm": "继续"
+  },
   "StaleTickerModal": {
     "title": "检测到不完整的价格数据",
     "description": "您投资组合中的部分股票价格数据早于最新日期。请选择如何处理。",

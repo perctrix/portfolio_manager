@@ -402,6 +402,20 @@
     "hashMismatchWarning": "Warning: The portfolio data has been modified since the analysis was calculated. The cached results will be discarded and indicators will be recalculated.",
     "cacheInfo": "Using cached results will load instantly. Recalculating will fetch latest prices and may take a few seconds."
   },
+  "SymbolResolution": {
+    "title": "Symbol Resolution Required",
+    "description": "Some stock symbols could not be automatically identified. Please select the correct Yahoo Finance symbol for each, or skip to exclude from calculations.",
+    "attempted": "Tried",
+    "suggestions": "Suggestions",
+    "orEnterManually": "Or enter manually",
+    "skip": "Skip",
+    "skipped": "Skipped",
+    "resolvedCount": "{count} resolved",
+    "skippedCount": "{count} skipped",
+    "pendingCount": "{count} pending",
+    "cancel": "Cancel",
+    "confirm": "Continue"
+  },
   "StaleTickerModal": {
     "title": "Incomplete Price Data Detected",
     "description": "Some stocks in your portfolio have price data that ends before the most recent date. Please choose how to handle each one.",
