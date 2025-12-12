@@ -578,6 +578,11 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
         }
     }
 
+    function clearAllBenchmarks() {
+        setSelectedBenchmarks(new Set());
+        setBenchmarkData({});
+    }
+
     function toggleSection(section: string) {
         const newExpanded = new Set(expandedSections);
         if (newExpanded.has(section)) {
@@ -810,6 +815,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
                 <BenchmarkPanel
                     selectedBenchmarks={selectedBenchmarks}
                     onToggleBenchmark={toggleBenchmark}
+                    onClearAll={clearAllBenchmarks}
                     isOpen={expandedSections.has('benchmarkPanel')}
                     onToggle={() => toggleSection('benchmarkPanel')}
                 />

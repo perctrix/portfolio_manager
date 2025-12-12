@@ -8,11 +8,12 @@ import { getBenchmarkList, Benchmark } from '@/lib/api';
 interface BenchmarkPanelProps {
     selectedBenchmarks: Set<string>;
     onToggleBenchmark: (symbol: string) => void;
+    onClearAll: () => void;
     isOpen: boolean;
     onToggle: () => void;
 }
 
-export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark, isOpen, onToggle }: BenchmarkPanelProps) {
+export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark, onClearAll, isOpen, onToggle }: BenchmarkPanelProps) {
     const t = useTranslations('BenchmarkPanel');
     const [benchmarks, setBenchmarks] = useState<Benchmark[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,10 +54,6 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark, isOpen, 
 
     const toggleCategory = (category: string) => {
         setCategoryExpanded(prev => ({ ...prev, [category]: !prev[category] }));
-    };
-
-    const handleClearAll = () => {
-        selectedBenchmarks.forEach(symbol => onToggleBenchmark(symbol));
     };
 
     if (loading) {
@@ -163,7 +160,7 @@ export function BenchmarkPanel({ selectedBenchmarks, onToggleBenchmark, isOpen, 
                                     {selectedBenchmarks.size} {selectedBenchmarks.size > 1 ? t('benchmarksSelected') : t('benchmarkSelected')}
                                 </span>
                                 <button
-                                    onClick={handleClearAll}
+                                    onClick={onClearAll}
                                     className="text-green-600 hover:text-green-700 font-medium transition-colors"
                                 >
                                     {t('clearAll')}
