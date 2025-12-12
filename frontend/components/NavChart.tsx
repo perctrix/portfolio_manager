@@ -468,7 +468,7 @@ export function NavChart({ data, cashData = [], comparisonData = {}, benchmarkDa
                     />
                     <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: number) => [formatValue(value), isComparisonMode ? t('change') : t('nav')]}
+                        formatter={(value: number, name: string) => [formatValue(value), name]}
                         labelFormatter={(label: any) => new Date(label).toLocaleDateString()}
                     />
                     <Legend />
