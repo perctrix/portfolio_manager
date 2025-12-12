@@ -55,7 +55,7 @@ export default function PortfolioDetail({ params }: { params: Promise<{ id: stri
     const [loadingBenchmarkComparison, setLoadingBenchmarkComparison] = useState(false);
     const [selectedBetaBenchmark, setSelectedBetaBenchmark] = useState<string>('^GSPC');
     const [allIndicators, setAllIndicators] = useState<AllIndicators | null>(null);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'positions', 'benchmarkPanel', 'benchmarkComparison']));
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['returns', 'benchmarkPanel', 'benchmarkComparison']));
     const [loadingStep, setLoadingStep] = useState(0);
     const totalLoadingSteps = 6;
     const [suggestedDeposit, setSuggestedDeposit] = useState<number | null>(null);
