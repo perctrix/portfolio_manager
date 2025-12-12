@@ -321,7 +321,9 @@
     "nav": "净值",
     "peak": "峰值",
     "startDateError": "开始日期不能早于",
-    "endDateError": "结束日期必须在开始日期之后"
+    "endDateError": "结束日期必须在开始日期之后",
+    "liquidationTooltip": "{symbol} 已转换为现金",
+    "liquidationAmount": "金额：{amount}"
   },
   "LoadingProgress": {
     "loadingPortfolio": "加载投资组合...",
@@ -426,9 +428,5 @@
     },
     "cancel": "取消",
     "confirm": "应用并继续"
-  },
-  "NavChart": {
-    "liquidationTooltip": "{symbol} 已转换为现金",
-    "liquidationAmount": "金额：{amount}"
   }
 }

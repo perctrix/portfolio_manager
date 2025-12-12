@@ -321,7 +321,9 @@
     "nav": "NAV",
     "peak": "Peak",
     "startDateError": "Start date cannot be earlier than",
-    "endDateError": "End date must be after start date"
+    "endDateError": "End date must be after start date",
+    "liquidationTooltip": "{symbol} converted to cash",
+    "liquidationAmount": "Amount: {amount}"
   },
   "LoadingProgress": {
     "loadingPortfolio": "Loading portfolio...",
@@ -426,9 +428,5 @@
     },
     "cancel": "Cancel",
     "confirm": "Apply & Continue"
-  },
-  "NavChart": {
-    "liquidationTooltip": "{symbol} converted to cash",
-    "liquidationAmount": "Amount: {amount}"
   }
 }
