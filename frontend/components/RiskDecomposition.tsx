@@ -42,7 +42,7 @@ export default function RiskDecomposition({ riskDecomp }: RiskDecompositionProps
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
             <YAxis tickFormatter={(value) => `${value.toFixed(1)}%`} />
-            <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
+            <Tooltip formatter={(value) => typeof value === 'number' ? `${value.toFixed(2)}%` : ''} />
             <Bar dataKey="value" name={t('riskContribution')}>
               {chartData.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

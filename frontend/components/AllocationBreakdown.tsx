@@ -56,7 +56,7 @@ export default function AllocationBreakdown({ allocation }: AllocationBreakdownP
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
+              <Tooltip formatter={(value) => typeof value === 'number' ? `${value.toFixed(2)}%` : ''} />
             </PieChart>
           </ResponsiveContainer>
         </div>
